@@ -1,6 +1,6 @@
 # SPEC 03 — Redes sociales editables desde el panel
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01, SPEC 02
 > **Fecha:** 2026-10-30
 > **Objetivo:** Reemplazar el único icono de Instagram por una lista de hasta 8 redes sociales que se agregan, quitan, reordenan y editan desde el panel `/admin` y se muestran con su icono en la página pública.
@@ -20,7 +20,7 @@ La SPEC 02 dejó `instagramUrl` como el único dato de redes sociales y dejó fu
 - En `/admin`, dentro del modo edición de la SPEC 02:
   - Botón `+ Agregar red` con selector del catálogo.
   - Editar la URL de cada red.
-  - Reordenar con `↑` y `↓`, y `Quitar`, igual que los botones.
+  - Los iconos se ven siempre en fila horizontal, también en el editor. Al tocar un icono se edita su link debajo, y desde ahí se reordena con `←` y `→` y se quita con `Quitar`.
   - Editar el título de la sección.
 - Los enlaces http(s) abren en pestaña nueva (`target="_blank"` con `rel="noopener noreferrer"`); los `mailto:` no.
 - Cada icono tiene `aria-label` con el nombre de la red (por ejemplo `Instagram`).
@@ -104,7 +104,7 @@ Convenciones:
 
 1. Crear `lib/socials.ts` con el tipo `SocialNetwork` y el catálogo, agregar `MAX_SOCIALS` a `lib/content-limits.ts` y crear `app/_components/social-icon.tsx` con los 9 iconos. Verificación: `npm run lint` pasa y nada visible cambia.
 2. Cambiar el modelo en `lib/content.ts` y `lib/links.ts`: tipos `SocialItem` y `SiteContent`, validación, clave `v2` con lectura de `v1` y migración, y `replaceLogoUrl`. Hacer que `app/_components/site-view.tsx` muestre `socialsTitle` y los iconos de `socials`, y que `app/admin/_components/editor.tsx` edite `socialsTitle` y la URL de cada red existente. Verificación: con el contenido de la SPEC 02 guardado en `v1`, `/` sigue mostrando el icono de Instagram y `/admin` permite editar su URL; guardar escribe `v2`.
-3. Agregar en `app/admin/_components/editor.tsx` el botón `+ Agregar red` con selector, `↑`, `↓` y `Quitar` por red. Verificación: se agregan, ordenan y quitan redes en pantalla y el límite de 8 deshabilita el botón.
+3. Agregar en `app/admin/_components/editor.tsx` el botón `+ Agregar red` con selector, y para la red elegida `←`, `→` y `Quitar`, con los iconos siempre en fila horizontal. Verificación: se agregan, ordenan y quitan redes en pantalla y el límite de 8 deshabilita el botón.
 4. Actualizar `CLAUDE.md` con el nuevo modelo y la clave `v2`. Verificación: el texto coincide con el código.
 
 ## Criterios de aceptación
@@ -115,6 +115,7 @@ Convenciones:
 - [ ] El selector de `+ Agregar red` ofrece exactamente Instagram, Facebook, TikTok, WhatsApp, YouTube, X, Telegram, Email y Web.
 - [ ] Una red agregada y guardada aparece en `/` con su icono propio.
 - [ ] Se pueden quitar y reordenar redes, y el orden guardado es el que se ve en `/`.
+- [ ] Los iconos de las redes se muestran en una fila horizontal, tanto en `/` como en `/admin`, también a 360 px de ancho (pasan a una segunda fila solo si no caben).
 - [ ] Con 8 redes, `+ Agregar red` está deshabilitado, y un guardado con 9 redes enviado al servidor se rechaza.
 - [ ] Una red `email` con URL `mailto:correo@dominio.com` se guarda y su enlace no se abre en pestaña nueva.
 - [ ] Una red `email` con URL `https://…` se rechaza con mensaje de error.

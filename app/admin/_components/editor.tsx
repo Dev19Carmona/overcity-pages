@@ -3,9 +3,18 @@
 import { useState, useTransition } from "react";
 import SiteView from "@/app/_components/site-view";
 import { logoutAction, saveContent } from "@/app/admin/actions";
+import SocialIcon from "@/app/_components/social-icon";
 import LogoUploader from "@/app/admin/_components/logo-uploader";
-import { MAX_LABEL, MAX_LINKS, MAX_TITLE, MAX_URL } from "@/lib/content-limits";
+import SocialPicker from "@/app/admin/_components/social-picker";
+import {
+  MAX_LABEL,
+  MAX_LINKS,
+  MAX_SOCIALS,
+  MAX_TITLE,
+  MAX_URL,
+} from "@/lib/content-limits";
 import type { LinkItem, SiteContent } from "@/lib/content";
+import { SOCIAL_NETWORKS, type SocialNetwork } from "@/lib/socials";
 
 const inputBase =
   "w-full rounded-md border border-dashed border-white/40 bg-transparent px-2 py-1 text-center outline-none focus-visible:border-white";
@@ -22,7 +31,10 @@ export default function Editor({ initial }: { initial: SiteContent }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, startSaving] = useTransition();
   const [logoBusy, setLogoBusy] = useState(false);
+  const [selectedSocialId, setSelectedSocialId] = useState<string | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const selectedIndex = draft.socials.findIndex((s) => s.id === selectedSocialId);
+  const selectedSocial = selectedIndex >= 0 ? draft.socials[selectedIndex] : null;
 
   function save() {
     setMessage(null);
@@ -74,11 +86,20 @@ export default function Editor({ initial }: { initial: SiteContent }) {
     setMessage(null);
   }
 
-  function setField<K extends "brandName" | "tagline" | "sectionTitle" | "instagramUrl">(
+  function setField<K extends "brandName" | "tagline" | "sectionTitle" | "socialsTitle">(
     field: K,
     value: string,
   ) {
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function setSocial(id: string, url: string) {
+    setDraft((current) => ({
+      ...current,
+      socials: current.socials.map((social) =>
+        social.id === id ? { ...social, url } : social,
+      ),
+    }));
   }
 
   function setLink(id: string, patch: Partial<LinkItem>) {
@@ -88,6 +109,40 @@ export default function Editor({ initial }: { initial: SiteContent }) {
         link.id === id ? { ...link, ...patch } : link,
       ),
     }));
+  }
+
+  function addSocial(network: SocialNetwork) {
+    const id = crypto.randomUUID();
+    setDraft((current) => ({
+      ...current,
+      socials: [
+        ...current.socials,
+        {
+          id,
+          network,
+          url: SOCIAL_NETWORKS[network].mailto ? "mailto:" : "https://",
+        },
+      ],
+    }));
+    setSelectedSocialId(id);
+  }
+
+  function removeSocial(id: string) {
+    setSelectedSocialId(null);
+    setDraft((current) => ({
+      ...current,
+      socials: current.socials.filter((social) => social.id !== id),
+    }));
+  }
+
+  function moveSocial(index: number, offset: -1 | 1) {
+    setDraft((current) => {
+      const target = index + offset;
+      if (target < 0 || target >= current.socials.length) return current;
+      const socials = [...current.socials];
+      [socials[index], socials[target]] = [socials[target], socials[index]];
+      return { ...current, socials };
+    });
   }
 
   function addLink() {
@@ -253,15 +308,95 @@ export default function Editor({ initial }: { initial: SiteContent }) {
               + Agregar botón
             </button>
           ),
-          instagramEditor: (
+          socialsTitle: (
             <input
-              aria-label="Link de Instagram"
-              value={draft.instagramUrl}
-              maxLength={MAX_URL}
-              inputMode="url"
-              onChange={(e) => setField("instagramUrl", e.target.value)}
-              className={`${inputBase} text-xs`}
+              aria-label="Título de redes sociales"
+              value={draft.socialsTitle}
+              maxLength={MAX_TITLE}
+              onChange={(e) => setField("socialsTitle", e.target.value)}
+              className={`${inputBase} text-base font-semibold`}
             />
+          ),
+          // Los iconos se ven en fila, como en la página pública; al elegir uno se edita debajo.
+          social: (social, index) => (
+            <button
+              type="button"
+              aria-label={`${SOCIAL_NETWORKS[social.network].label} (red ${index + 1})`}
+              aria-pressed={social.id === selectedSocialId}
+              onClick={() =>
+                setSelectedSocialId(social.id === selectedSocialId ? null : social.id)
+              }
+              className={`rounded-full border p-2 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${
+                social.id === selectedSocialId
+                  ? "border-white bg-white/10"
+                  : "border-dashed border-white/40 hover:border-white"
+              }`}
+            >
+              <SocialIcon network={social.network} className="size-8" />
+            </button>
+          ),
+          afterSocials: (
+            <>
+              {selectedSocial ? (
+                <div className="flex w-full flex-col gap-2 rounded-3xl border border-border-soft bg-white/5 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <SocialIcon
+                      network={selectedSocial.network}
+                      className="size-6 shrink-0"
+                    />
+                    <input
+                      aria-label={`Link de ${SOCIAL_NETWORKS[selectedSocial.network].label}`}
+                      value={selectedSocial.url}
+                      maxLength={MAX_URL}
+                      inputMode={SOCIAL_NETWORKS[selectedSocial.network].mailto ? "email" : "url"}
+                      placeholder={
+                        SOCIAL_NETWORKS[selectedSocial.network].mailto
+                          ? "mailto:correo@dominio.com"
+                          : "https://"
+                      }
+                      onChange={(e) => setSocial(selectedSocial.id, e.target.value)}
+                      className={`${inputBase} text-left text-xs`}
+                    />
+                  </div>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Mover red a la izquierda"
+                      disabled={selectedIndex === 0}
+                      onClick={() => moveSocial(selectedIndex, -1)}
+                      className={smallButton}
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Mover red a la derecha"
+                      disabled={selectedIndex === draft.socials.length - 1}
+                      onClick={() => moveSocial(selectedIndex, 1)}
+                      className={smallButton}
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Quitar red"
+                      onClick={() => removeSocial(selectedSocial.id)}
+                      className={smallButton}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                draft.socials.length > 0 && (
+                  <p className="text-xs">Toca un icono para editar su link.</p>
+                )
+              )}
+              <SocialPicker
+                disabled={draft.socials.length >= MAX_SOCIALS}
+                onPick={addSocial}
+              />
+            </>
           ),
         }}
       />
