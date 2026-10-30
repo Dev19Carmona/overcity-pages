@@ -19,7 +19,24 @@ No test runner is configured.
 
 ## Architecture
 
-Freshly bootstrapped `create-next-app` project (App Router, TypeScript, Tailwind v4, React 19). Currently only `app/layout.tsx` (root layout with Geist fonts via `next/font/google`), `app/page.tsx` (default template page), and `app/globals.css` exist.
+`create-next-app` project (App Router, TypeScript, Tailwind v4, React 19) that serves the OverCity links page and an admin panel to edit it.
+
+- `/` (`app/page.tsx`) renders `app/_components/site-view.tsx` with `getPublicContent()` (`"use cache"`, tag `content`). Falls back to `DEFAULT_CONTENT` in `lib/links.ts` if Redis is empty or fails.
+- `/admin` (`app/admin/`) asks for a password and, with a session, shows the same page in edit mode (`app/admin/_components/editor.tsx`). `saveContent` (`app/admin/actions.ts`) validates, writes to Redis and calls `updateTag("content")`.
+- `app/api/logo/route.ts` uploads and removes the logo in Vercel Blob.
+- `lib/content.ts` holds the `SiteContent` types, validation and Redis access; `lib/auth.ts` holds the signed session cookie and login rate limit; `lib/redis.ts` is the shared Upstash client.
+- Content that changes over time (texts, links, images) must live in `SiteContent` and be editable from the panel (see `specs/02-admin-de-contenido.md`).
+
+## Environment variables
+
+Copy `.env.example` to `.env.local` for local development. In Vercel, `KV_REST_API_*` and `BLOB_READ_WRITE_TOKEN` come from the Upstash Redis and Blob integrations; `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` are added by hand in Settings → Environment Variables.
+
+- `ADMIN_PASSWORD`: password for `/admin`.
+- `ADMIN_SESSION_SECRET`: secret that signs the `overcity_admin` session cookie.
+- `KV_REST_API_URL`, `KV_REST_API_TOKEN`: Upstash Redis (content and login attempt counter).
+- `BLOB_READ_WRITE_TOKEN`: Vercel Blob (logo).
+
+Without Redis the public page still works with the defaults, but in production `/admin` refuses logins.
 
 Non-default setup worth knowing:
 
