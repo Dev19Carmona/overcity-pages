@@ -1,6 +1,6 @@
 # SPEC 03 — Redes sociales editables desde el panel
 
-> **Estado:** Borrador
+> **Estado:** Aprobado
 > **Depende de:** SPEC 01, SPEC 02
 > **Fecha:** 2026-10-30
 > **Objetivo:** Reemplazar el único icono de Instagram por una lista de hasta 8 redes sociales que se agregan, quitan, reordenan y editan desde el panel `/admin` y se muestran con su icono en la página pública.
