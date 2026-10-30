@@ -1,6 +1,6 @@
 # SPEC 02 — Panel de administración del contenido de la página de links
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Depende de:** SPEC 01
 > **Fecha:** 2026-10-30
 > **Objetivo:** Agregar una ruta `/admin`, protegida por una clave de variable de entorno, que muestra la misma página de links en modo edición para cambiar textos, logo, links y botones, y publica los cambios en la página pública sin redeploy.

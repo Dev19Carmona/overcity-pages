@@ -24,6 +24,8 @@ No test runner is configured.
 - `/` (`app/page.tsx`) renders `app/_components/site-view.tsx` with `getPublicContent()` (`"use cache"`, tag `content`). Falls back to `DEFAULT_CONTENT` in `lib/links.ts` if Redis is empty or fails.
 - `/admin` (`app/admin/`) asks for a password and, with a session, shows the same page in edit mode (`app/admin/_components/editor.tsx`). `saveContent` (`app/admin/actions.ts`) validates, writes to Redis and calls `updateTag("content")`.
 - `app/api/logo/route.ts` uploads and removes the logo in Vercel Blob.
+- Social networks are a list (`socials`, max 8) chosen from the fixed catalog in `lib/socials.ts`, rendered as a horizontal row of icons (`app/_components/social-icon.tsx`). In the editor each icon is selected to edit its URL, reorder (← →) or remove it.
+- Content lives in Redis under `overcity:content:v2`. If it does not exist, `overcity:content:v1` (the SPEC 02 shape with `instagramUrl`) is read and converted in memory; `v1` is never modified.
 - `lib/content.ts` holds the `SiteContent` types, validation and Redis access; `lib/auth.ts` holds the signed session cookie and login rate limit; `lib/redis.ts` is the shared Upstash client.
 - Content that changes over time (texts, links, images) must live in `SiteContent` and be editable from the panel (see `specs/02-admin-de-contenido.md`).
 
