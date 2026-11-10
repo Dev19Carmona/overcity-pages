@@ -17,13 +17,13 @@ import type { LinkItem, SiteContent } from "@/lib/content";
 import { SOCIAL_NETWORKS, type SocialNetwork } from "@/lib/socials";
 
 const inputBase =
-  "w-full rounded-md border border-dashed border-white/40 bg-transparent px-2 py-1 text-center outline-none focus-visible:border-white";
+  "w-full rounded-md border border-dashed border-white/40 bg-transparent px-2 py-1 text-center outline-none focus-visible:border-theme-red";
 
 const barButton =
-  "rounded-full border border-border-soft px-4 py-2 text-sm font-semibold transition hover:border-white disabled:opacity-50 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
+  "rounded-full border border-border-soft px-4 py-2 text-sm font-semibold transition hover:border-theme-red disabled:opacity-50 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
 
 const smallButton =
-  "rounded-full border border-border-soft px-3 py-1 text-xs font-semibold transition hover:border-white disabled:opacity-40 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+  "rounded-full border border-border-soft px-3 py-1 text-xs font-semibold transition hover:border-theme-red disabled:opacity-40 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
 
 export default function Editor({ initial }: { initial: SiteContent }) {
   const [saved, setSaved] = useState<SiteContent>(initial);
@@ -86,7 +86,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
     setMessage(null);
   }
 
-  function setField<K extends "brandName" | "tagline" | "sectionTitle" | "socialsTitle">(
+  function setField<K extends "brandName" | "sectionTitle" | "socialsTitle">(
     field: K,
     value: string,
   ) {
@@ -174,7 +174,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
 
   return (
     <>
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border-soft bg-black/80 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-border-soft bg-theme-navy/90 px-4 py-3 backdrop-blur">
         <span className="text-sm font-semibold">Modo edición</span>
         <div className="flex flex-wrap items-center gap-2">
           {message && (
@@ -189,7 +189,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
             type="button"
             disabled={!dirty || saving}
             onClick={save}
-            className={`${barButton} border-white bg-white/10`}
+            className={`${barButton} border-theme-red bg-theme-red/20`}
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>
@@ -226,20 +226,11 @@ export default function Editor({ initial }: { initial: SiteContent }) {
           ),
           brandName: (
             <input
-              aria-label="Nombre de la marca"
+              aria-label="Nombre de la marca (texto alternativo del logo)"
               value={draft.brandName}
               maxLength={MAX_TITLE}
               onChange={(e) => setField("brandName", e.target.value)}
-              className={`${inputBase} text-4xl font-extrabold tracking-tight`}
-            />
-          ),
-          tagline: (
-            <input
-              aria-label="Subtítulo"
-              value={draft.tagline}
-              maxLength={MAX_TITLE}
-              onChange={(e) => setField("tagline", e.target.value)}
-              className={`${inputBase} text-sm font-semibold uppercase tracking-[0.35em]`}
+              className={`${inputBase} mt-2 text-sm`}
             />
           ),
           sectionTitle: (
@@ -252,7 +243,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
             />
           ),
           link: (link, index) => (
-            <div className="flex w-full flex-col gap-2 rounded-3xl border border-border-soft bg-white/5 px-4 py-3">
+            <div className="flex w-full flex-col gap-2 rounded-3xl border border-border-soft bg-black/30 px-4 py-3 backdrop-blur-md">
               <input
                 aria-label={`Texto del botón ${index + 1}`}
                 value={link.label}
@@ -326,10 +317,10 @@ export default function Editor({ initial }: { initial: SiteContent }) {
               onClick={() =>
                 setSelectedSocialId(social.id === selectedSocialId ? null : social.id)
               }
-              className={`rounded-full border p-2 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white ${
+              className={`rounded-full border p-2 text-theme-red transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red ${
                 social.id === selectedSocialId
-                  ? "border-white bg-white/10"
-                  : "border-dashed border-white/40 hover:border-white"
+                  ? "border-theme-red bg-theme-red/20"
+                  : "border-dashed border-white/40 hover:border-theme-red"
               }`}
             >
               <SocialIcon network={social.network} className="size-8" />
@@ -338,7 +329,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
           afterSocials: (
             <>
               {selectedSocial ? (
-                <div className="flex w-full flex-col gap-2 rounded-3xl border border-border-soft bg-white/5 px-4 py-3">
+                <div className="flex w-full flex-col gap-2 rounded-3xl border border-border-soft bg-black/30 px-4 py-3 backdrop-blur-md">
                   <div className="flex items-center gap-3">
                     <SocialIcon
                       network={selectedSocial.network}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import NightScene from "@/app/_components/night-scene";
 import Editor from "@/app/admin/_components/editor";
 import LoginForm from "@/app/admin/_components/login-form";
 import { isAdmin } from "@/lib/auth";
@@ -13,10 +14,13 @@ export const metadata: Metadata = {
 async function AdminGate() {
   if (!(await isAdmin())) {
     return (
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight">Administración</h1>
-        <LoginForm />
-      </main>
+      <>
+        <NightScene />
+        <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
+          <h1 className="text-2xl font-extrabold tracking-tight">Administración</h1>
+          <LoginForm />
+        </main>
+      </>
     );
   }
 
@@ -27,7 +31,7 @@ export default function AdminPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex flex-1 items-center justify-center">
+        <main className="relative z-10 flex flex-1 items-center justify-center">
           <p className="text-sm">Cargando…</p>
         </main>
       }

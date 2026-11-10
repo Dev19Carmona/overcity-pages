@@ -29,6 +29,24 @@ No test runner is configured.
 - `lib/content.ts` holds the `SiteContent` types, validation and Redis access; `lib/auth.ts` holds the signed session cookie and login rate limit; `lib/redis.ts` is the shared Upstash client.
 - Content that changes over time (texts, links, images) must live in `SiteContent` and be editable from the panel (see `specs/02-admin-de-contenido.md`).
 
+## Estilo (regla de negocio)
+
+Referencia visual oficial del diseñador: `references/estilo/index.html` y `references/estilo/assets/` (SPEC 04). Todo lo que se construya o pida de ahora en adelante (páginas, componentes, el panel, modales) debe seguir más o menos este mismo estilo. Esta paleta reemplaza la de la SPEC 01. No se inventan colores ni tipografías nuevas.
+
+- **Tema:** cyberpunk japonés nocturno, oscuro, con lluvia, bruma y pétalos de sakura.
+- **Colores:** fondo azul marino `#0A1C29` (`theme-navy`); acento rojo `#D81A21` (`theme-red`); texto blanco; borde suave `rgba(255,255,255,0.1)`. Neón rojo `#ff294d` / `#ff2448` solo para trazos y resplandores. Superficies translúcidas negras (`bg-black/30`, `rgba(0,0,0,.38)`) con `backdrop-blur-md`, nunca fondos planos claros.
+- **Tipografía:** Inter (400, 600, 800) con `next/font/google`. Títulos y botones en `font-semibold`. Los títulos de marca llevan `letter-spacing: .055em` y `text-shadow` rojo tenue.
+- **Fondo:** paisaje `public/overcity/paisaje-japon-cyberpunk.webp` con `blur(1.4px) brightness(.82) saturate(.9)` y degradados marino encima. Capas (`z-index`): paisaje 0, lluvia 1, humo 2, relámpago 3, pétalos 4, contenido 10, botón de música 30, modal 40.
+- **Efectos:** lluvia, humo bajo, pétalos y relámpagos en canvas (componentes cliente), pausados con la pestaña oculta. Con `prefers-reduced-motion: reduce` no hay relámpagos y el neón queda fijo.
+- **Layout:** columna centrada `max-w-md`, `px-4`, móvil primero, sin scroll horizontal a 360 px.
+- **Botones de link:** píldora (`rounded-full`), `px-6 py-4`, `font-semibold`, trazo de neón animado en el perímetro (SVG con `pathLength="100"`) que se ilumina por turnos; al pasar el cursor suben 4 px (`motion-safe:hover:-translate-y-1`), fondo y borde rojos y resplandor.
+- **Títulos de sección:** `premium-heading` con máscaras oni 👺 y 👹 flotantes a los lados (`aria-hidden`).
+- **Iconos sociales:** SVG `currentColor`, `size-8`, rojo `theme-red`, blancos al hover, `hover:scale-125`, `drop-shadow-lg`.
+- **Modales:** `<dialog>` con backdrop `rgba(10,28,41,.85)` y `blur(4px)`, panel marino con `border-theme-red/50`, `rounded-2xl`, `p-6` y sombra roja tenue.
+- **Foco y accesibilidad:** `focus-visible:outline-2 outline-offset-4 outline-theme-red`; texto con contraste mínimo 4.5:1 (iconos 3:1); `aria-label` en todo control de icono.
+- **Recursos:** logo `logo-overcity.png` con resplandor rojo `drop-shadow-[0_0_12px_rgba(216,26,33,0.48)]`; música `musica-fondo.mp3` solo con acción del usuario y `preload="none"`.
+- Los activos viven en `public/overcity/`. Lo que cambia con el tiempo (logo, textos, links y, desde la SPEC 05, fondo y música) sigue la regla de contenido editable del panel.
+
 ## Environment variables
 
 Copy `.env.example` to `.env.local` for local development. In Vercel, `KV_REST_API_*` and `BLOB_READ_WRITE_TOKEN` come from the Upstash Redis and Blob integrations; `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` are added by hand in Settings → Environment Variables.
