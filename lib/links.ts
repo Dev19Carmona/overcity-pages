@@ -17,4 +17,7 @@ export const DEFAULT_CONTENT: SiteContent = {
     { id: "camisas", label: "Camisas (シャツ)", href: "https://heyzine.com/flip-book/17a9864401.html" },
     { id: "camisillas", label: "Camisillas (タンクトップ)", href: "https://heyzine.com/flip-book/af8d607512.html" },
   ],
+  background: { source: "default", url: null },
+  music: { source: "default", url: null },
+  effectsEnabled: true,
 };

@@ -5,6 +5,7 @@ import NightScene from "@/app/_components/night-scene";
 import ShareDialog from "@/app/_components/share-dialog";
 import SocialIcon from "@/app/_components/social-icon";
 import type { LinkItem, SiteContent, SocialItem } from "@/lib/content";
+import { DEFAULT_MUSIC_URL, resolveMediaUrl } from "@/lib/media";
 import { SOCIAL_NETWORKS } from "@/lib/socials";
 
 export const DEFAULT_LOGO = "/overcity/logo-overcity.png";
@@ -25,6 +26,7 @@ export type SiteViewSlots = {
   socialsTitle?: ReactNode;
   social?: (social: SocialItem, index: number) => ReactNode;
   afterSocials?: ReactNode;
+  settings?: ReactNode; // controles de fondo, música y efectos (solo editor)
 };
 
 // Con N botones cada uno se ilumina por turnos; el ciclo dura N × 5 s. Con 1 solo queda encendido.
@@ -60,11 +62,13 @@ export default function SiteView({
   // Sin redes, la sección solo se ve en el editor para poder agregar la primera.
   const showSocials = editing || content.socials.length > 0;
   const linkCount = content.links.length;
+  const musicUrl = resolveMediaUrl(content.music, DEFAULT_MUSIC_URL);
 
   return (
     <>
-      <NightScene />
-      <MusicToggle />
+      <NightScene background={content.background} effectsEnabled={content.effectsEnabled} />
+      {/* En el panel el botón va dentro de la barra de edición (ver editor.tsx), no flotante. */}
+      {musicUrl && !editing && <MusicToggle key={musicUrl} src={musicUrl} />}
       {!editing && linkCount > 1 && <style>{neonKeyframes(linkCount)}</style>}
 
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center px-4 pb-10 pt-16">
@@ -154,6 +158,7 @@ export default function SiteView({
             {slots.afterSocials}
           </section>
         )}
+        {slots.settings}
       </main>
     </>
   );

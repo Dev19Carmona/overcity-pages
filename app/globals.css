@@ -35,7 +35,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("/overcity/paisaje-japon-cyberpunk.webp");
+  background-image: var(--scene-image, url("/overcity/paisaje-japon-cyberpunk.webp"));
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;

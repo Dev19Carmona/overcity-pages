@@ -24,6 +24,11 @@ export type SocialItem = {
   url: string; // http(s) para todas; mailto: solo para "email"
 };
 
+export type MediaSetting = {
+  source: "default" | "custom" | "none";
+  url: string | null; // solo con source "custom": URL pública en Vercel Blob
+};
+
 export type SiteContent = {
   brandName: string;
   tagline: string;
@@ -32,6 +37,9 @@ export type SiteContent = {
   socialsTitle: string;
   socials: SocialItem[]; // el orden del arreglo es el orden en pantalla
   links: LinkItem[]; // el orden del arreglo es el orden en pantalla
+  background: MediaSetting; // "default" = /overcity/paisaje-japon-cyberpunk.webp
+  music: MediaSetting; // "default" = /overcity/musica-fondo.mp3
+  effectsEnabled: boolean; // true = lluvia, humo, pétalos y relámpagos
 };
 
 export const CONTENT_KEY = "overcity:content:v2";
@@ -78,6 +86,47 @@ function socialUrl(network: SocialNetwork, value: unknown, field: string): strin
     throw new Error(`${field} debe ser del tipo mailto:correo@dominio.com.`);
   }
   return url;
+}
+
+// Un archivo propio solo puede estar en Vercel Blob (https y dominio *.blob.vercel-storage.com).
+export function isBlobUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "blob.vercel-storage.com" ||
+        parsed.hostname.endsWith(".blob.vercel-storage.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Si el campo falta (contenido guardado antes de la SPEC 05) se usa el valor por defecto.
+function mediaSetting(value: unknown, field: string): MediaSetting {
+  if (value === undefined || value === null) return { source: "default", url: null };
+  if (!isRecord(value)) throw new Error(`${field} es inválido.`);
+
+  const { source, url } = value;
+  if (source !== "default" && source !== "custom" && source !== "none") {
+    throw new Error(`${field} tiene un origen inválido.`);
+  }
+  if (source !== "custom") {
+    if (url !== null && url !== undefined) {
+      throw new Error(`${field} no debe tener URL si no es un archivo propio.`);
+    }
+    return { source, url: null };
+  }
+  if (typeof url !== "string" || !url) {
+    throw new Error(`${field} necesita la URL del archivo subido.`);
+  }
+  if (url.length > MAX_URL) {
+    throw new Error(`La URL de ${field} no puede superar ${MAX_URL} caracteres.`);
+  }
+  if (!isBlobUrl(url)) {
+    throw new Error(`La URL de ${field} debe ser un archivo subido a Vercel Blob.`);
+  }
+  return { source, url };
 }
 
 export function validateContent(input: unknown): ValidationResult {
@@ -134,6 +183,11 @@ export function validateContent(input: unknown): ValidationResult {
         ? null
         : httpUrl(input.logoUrl, "Logo");
 
+    const effectsEnabled = input.effectsEnabled ?? true;
+    if (typeof effectsEnabled !== "boolean") {
+      throw new Error("Los efectos deben ser activados o desactivados.");
+    }
+
     return {
       ok: true,
       content: {
@@ -144,6 +198,9 @@ export function validateContent(input: unknown): ValidationResult {
         socialsTitle: text(input.socialsTitle, "El título de redes", MAX_TITLE),
         socials: validSocials,
         links: validLinks,
+        background: mediaSetting(input.background, "El fondo"),
+        music: mediaSetting(input.music, "La música"),
+        effectsEnabled,
       },
     };
   } catch (error) {
@@ -198,6 +255,13 @@ export async function replaceLogoUrl(logoUrl: string | null): Promise<string | n
   const current = await loadStored(redis);
   await redis.set(CONTENT_KEY, { ...current, logoUrl });
   return current.logoUrl;
+}
+
+// Contenido guardado ahora mismo, sin valores de respaldo si Redis falla (lanza el error).
+export async function getStoredContent(): Promise<SiteContent> {
+  const redis = getRedis();
+  if (!redis) throw new Error("El almacenamiento no está configurado.");
+  return loadStored(redis);
 }
 
 // Sin caché, para el panel. Si falta, es inválido o Redis falla, devuelve DEFAULT_CONTENT.
