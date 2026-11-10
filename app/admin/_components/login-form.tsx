@@ -19,7 +19,7 @@ export default function LoginForm() {
         type="password"
         autoComplete="current-password"
         required
-        className="w-full rounded-full border border-border-soft bg-white/5 px-6 py-4 text-base outline-none focus-visible:border-white"
+        className="w-full rounded-full border border-border-soft bg-black/30 px-6 py-4 text-base text-white outline-none backdrop-blur-md focus-visible:border-theme-red"
       />
       {state.error && (
         <p role="alert" className="text-sm font-semibold text-red-300">
@@ -29,7 +29,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full border border-white bg-white/10 px-6 py-4 text-base font-semibold transition hover:bg-white/20 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+        className="w-full rounded-full border border-theme-red bg-theme-red/20 px-6 py-4 text-base font-semibold transition hover:bg-theme-red/40 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red"
       >
         {pending ? "Entrando…" : "Entrar"}
       </button>

@@ -5,7 +5,7 @@ import SocialIcon from "@/app/_components/social-icon";
 import { SOCIAL_NETWORK_IDS, SOCIAL_NETWORKS, type SocialNetwork } from "@/lib/socials";
 
 const buttonClass =
-  "rounded-full border border-border-soft px-4 py-2 text-sm font-semibold transition hover:border-white disabled:opacity-50 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
+  "rounded-full border border-border-soft px-4 py-2 text-sm font-semibold transition hover:border-theme-red disabled:opacity-50 disabled:hover:border-border-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
 
 export default function SocialPicker({
   disabled,
@@ -45,7 +45,7 @@ export default function SocialPicker({
                 onPick(network);
                 setOpen(false);
               }}
-              className="flex w-full flex-col items-center gap-1 rounded-xl border border-border-soft px-2 py-3 text-xs font-semibold transition hover:border-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="flex w-full flex-col items-center gap-1 rounded-xl border border-border-soft px-2 py-3 text-xs font-semibold transition hover:border-theme-red focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red"
             >
               <SocialIcon network={network} className="size-6" />
               {SOCIAL_NETWORKS[network].label}

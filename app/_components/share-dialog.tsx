@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 const SHARE_TEXT = "OverCity Streetwear";
 
 const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
+  "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
 
 function buildNetworks(url: string) {
   const u = encodeURIComponent(url);
@@ -74,7 +74,7 @@ export default function ShareDialog() {
     setCopied(await copyToClipboard(url));
   }
 
-  const itemClass = `block w-full rounded-full border border-border-soft px-5 py-3 text-center font-semibold transition hover:border-white hover:bg-white/10 ${focusRing}`;
+  const itemClass = `block w-full rounded-full border border-border-soft bg-black/30 px-5 py-3 text-center font-semibold text-white transition hover:border-theme-red hover:bg-theme-red/20 ${focusRing}`;
 
   return (
     <>
@@ -82,7 +82,7 @@ export default function ShareDialog() {
         type="button"
         onClick={open}
         aria-label="Compartir"
-        className={`absolute right-4 top-4 rounded-full border border-border-soft bg-white/5 p-2.5 transition hover:bg-white/10 ${focusRing}`}
+        className={`absolute right-4 top-4 rounded-full border border-border-soft bg-black/30 p-2.5 text-white backdrop-blur-md transition hover:border-theme-red hover:bg-theme-red/20 ${focusRing}`}
       >
         <svg
           viewBox="0 0 24 24"
@@ -104,7 +104,7 @@ export default function ShareDialog() {
         ref={dialogRef}
         aria-labelledby="share-title"
         onClick={closeOnBackdropClick}
-        className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-border-soft bg-[#16181d] p-6 text-foreground backdrop:bg-black/70"
+        className="z-40 m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-theme-red/50 bg-theme-navy p-6 text-white shadow-[0_0_30px_rgba(216,26,33,0.2)]"
       >
         <div className="flex items-center justify-between">
           <h2 id="share-title" className="text-lg font-semibold">
@@ -114,7 +114,7 @@ export default function ShareDialog() {
             type="button"
             onClick={close}
             aria-label="Cerrar"
-            className={`rounded-full p-2 transition hover:bg-white/10 ${focusRing}`}
+            className={`rounded-full p-2 transition hover:bg-theme-red/20 ${focusRing}`}
           >
             <svg
               viewBox="0 0 24 24"

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full antialiased">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OverCity Streetwear</title>
+    <meta name="description" content="OverCity Streetwear: catálogos de camisas y camisillas.">
+    
+    <link rel="preload" as="image" href="assets/paisaje-japon-cyberpunk.webp" fetchpriority="high">
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/overcity-utilities.css">
+<style>
+        /* Base styles to mimic the original application environment */
+        body {
+            background-color: #0A1C29; /* theme-navy */
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        /* Dialog Backdrop Styling */
+        dialog::backdrop {
+            background-color: rgba(10, 28, 41, 0.85); /* Navy backdrop */
+            backdrop-filter: blur(4px);
+        }
+        
+        /* El contenido principal se muestra desde que carga la página. */
+        #main-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Paisaje cyberpunk japonés: imagen panorámica con tinte azul marino */
+        #night-scene {
+            position: fixed;
+            inset: -14px;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+            background: #0A1C29;
+        }
+
+        #night-scene::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: url("assets/paisaje-japon-cyberpunk.webp");
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            filter: blur(1.4px) brightness(.82) saturate(.9);
+            transform: scale(1.035);
+        }
+
+        #night-scene::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(180deg, rgba(10, 28, 41, .28) 0%, rgba(10, 28, 41, .43) 52%, rgba(10, 28, 41, .76) 100%),
+                linear-gradient(90deg, rgba(10, 28, 41, .28), rgba(10, 28, 41, .12) 50%, rgba(10, 28, 41, .30));
+        }
+
+        /* Llovizna real en canvas: gotas finas, constantes y ligeramente inclinadas por el viento. */
+        #rain-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: block;
+        }
+
+        /* Humo bajo: bruma tenue que cruza el suelo sin tapar la página. */
+        #fog-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: block;
+        }
+
+        /* Pétalos Sakura en primer plano, por delante del paisaje y detrás del contenido. */
+        #sakura-petals-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 4;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: block;
+        }
+
+        /* Destello de relámpago detrás del contenido. */
+        #lightning-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0;
+            background: rgba(190, 218, 239, .22);
+            mix-blend-mode: screen;
+        }
+
+        #lightning-flash.strike {
+            animation: lightning-flash .72s ease-out;
+        }
+
+        @keyframes lightning-flash {
+            0%, 100% { opacity: 0; }
+            8% { opacity: .55; }
+            13% { opacity: .08; }
+            20% { opacity: .38; }
+            29% { opacity: .04; }
+            38% { opacity: .28; }
+            54% { opacity: 0; }
+        }
+
+        /* El contenido queda claramente por delante del paisaje y la tormenta. */
+        #main-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        #shareDialog {
+            z-index: 40;
+        }
+
+        /* Control compacto para activar la música japonesa. */
+        #music-toggle {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 30;
+            border: 1px solid rgba(216, 26, 33, .65);
+            border-radius: 999px;
+            background: rgba(10, 28, 41, .88);
+            color: #fff;
+            padding: 10px 15px;
+            font: 600 12px Inter, sans-serif;
+            letter-spacing: .04em;
+            box-shadow: 0 0 18px rgba(216, 26, 33, .18);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: background .25s ease, box-shadow .25s ease, transform .25s ease;
+        }
+
+        #music-toggle:hover {
+            background: rgba(216, 26, 33, .25);
+            box-shadow: 0 0 22px rgba(216, 26, 33, .38);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 640px) {
+            #night-scene::before {
+                background-position: 53% center;
+            }
+
+            #music-toggle {
+                right: 12px;
+                bottom: 12px;
+                padding: 9px 13px;
+            }
+
+        }
+
+    
+        /* Trazo neón visible que recorre el perímetro de cada botón. */
+        @keyframes neon-trace {
+            from { stroke-dashoffset: 0; }
+            to   { stroke-dashoffset: -100; }
+        }
+
+        /* La iluminación se alterna: primero Camisas, luego Camisillas. */
+        @keyframes neon-show-first {
+            0%, 44% { opacity: 1; }
+            45%, 100% { opacity: 0; }
+        }
+
+        @keyframes neon-show-second {
+            0%, 49% { opacity: 0; }
+            50%, 94% { opacity: 1; }
+            95%, 100% { opacity: 0; }
+        }
+
+        .catalog-neon {
+            position: relative;
+            isolation: isolate;
+            overflow: visible;
+            border: 1px solid rgba(255, 48, 72, .52);
+            background-color: rgba(0, 0, 0, .38);
+            box-shadow: 0 0 10px rgba(0, 0, 0, .24), inset 0 0 10px rgba(216, 26, 33, .06);
+        }
+
+        /* SVG overlay avoids mask-composite inconsistencies across browsers. */
+        .catalog-neon .neon-outline-svg {
+            position: absolute;
+            inset: -2px;
+            width: calc(100% + 4px);
+            height: calc(100% + 4px);
+            z-index: 3;
+            overflow: visible;
+            pointer-events: none;
+        }
+
+        .catalog-neon .neon-outline-svg rect {
+            fill: none;
+            stroke: #ff294d;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-dasharray: 24 76;
+            filter: drop-shadow(0 0 3px #ff2448) drop-shadow(0 0 7px rgba(255, 28, 61, .95));
+            animation: neon-trace 4s linear infinite;
+        }
+
+        .catalog-neon-first .neon-outline-svg {
+            animation: neon-show-first 10s linear infinite;
+        }
+
+        .catalog-neon-second .neon-outline-svg {
+            animation: neon-show-second 10s linear infinite;
+        }
+
+        .catalog-neon .catalog-label {
+            position: relative;
+            z-index: 4;
+        }
+
+        .catalog-neon:hover,
+        .catalog-neon:focus-visible {
+            background-color: rgba(216, 26, 33, .19);
+            box-shadow: 0 0 20px rgba(255, 35, 62, .32), inset 0 0 12px rgba(255, 35, 62, .1);
+        }
+
+        /* Mantener un contorno encendido incluso si se reduce el movimiento. */
+        @media (prefers-reduced-motion: reduce) {
+            .catalog-neon .neon-outline-svg {
+                animation: none;
+                opacity: 1;
+            }
+            .catalog-neon .neon-outline-svg rect {
+                animation: none;
+                stroke-dasharray: 100 0;
+            }
+        }
+
+        /* Título de marca flanqueado por máscaras japonesas con ojos rojos. */
+        .premium-heading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-align: center;
+            letter-spacing: .055em;
+            text-shadow: 0 0 12px rgba(216, 26, 33, .35);
+        }
+
+        .oni-mask {
+            position: relative;
+            display: inline-block;
+            flex: 0 0 auto;
+            font-size: 1.45em;
+            line-height: 1;
+            filter: drop-shadow(0 0 7px rgba(216, 26, 33, .42));
+            animation: oni-float 3.1s ease-in-out infinite;
+        }
+
+        .oni-mask::before,
+        .oni-mask::after {
+            content: "";
+            position: absolute;
+            top: 43%;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #ff263e;
+            box-shadow: 0 0 4px 2px #ff263e, 0 0 10px 4px rgba(255, 20, 45, .78);
+            animation: oni-eye-glow 1.45s ease-in-out infinite alternate;
+        }
+
+        .oni-mask::before { left: 29%; }
+        .oni-mask::after { right: 29%; animation-delay: .35s; }
+
+        .oni-mask:last-child { animation-delay: -1.55s; }
+
+        @keyframes oni-float {
+            0%, 100% { transform: translateY(0) rotate(-3deg); }
+            50% { transform: translateY(-4px) rotate(3deg); }
+        }
+
+        @keyframes oni-eye-glow {
+            from { opacity: .72; box-shadow: 0 0 3px 1px #ff263e, 0 0 7px 3px rgba(255, 20, 45, .62); }
+            to { opacity: 1; box-shadow: 0 0 5px 2px #ff263e, 0 0 14px 6px rgba(255, 20, 45, .92); }
+        }
+
+        @media (max-width: 380px) {
+            .premium-heading { gap: 8px; font-size: 1rem; }
+        }
+
+    </style>
+</head>
+<body class="min-h-full flex flex-col">
+    <!-- Audio local: se descarga únicamente cuando el visitante pulsa Activar música. -->
+    <audio id="bgm-audio" src="assets/musica-fondo.mp3" preload="none" loop playsinline></audio>
+<!-- Paisaje japonés cyberpunk de noche -->
+    <div id="night-scene" aria-hidden="true"></div>
+    <canvas id="rain-canvas" aria-hidden="true"></canvas>
+    <canvas id="fog-canvas" aria-hidden="true"></canvas>
+    <canvas id="sakura-petals-canvas" aria-hidden="true"></canvas>
+    <div id="lightning-flash" aria-hidden="true"></div>
+
+    <button id="music-toggle" type="button" aria-label="Activar música japonesa" aria-pressed="false">
+        ♫ Activar música
+    </button>
+
+    <main id="main-content" class="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center px-4 pb-10 pt-16 content-visible">
+       
+
+        <!-- Header Profile: solo el logo proporcionado -->
+        <header class="flex w-full flex-col items-center justify-center text-center mt-4">
+            <img src="assets/logo-overcity.png" alt="Logo OverCity" class="h-20 w-auto max-w-full object-contain drop-shadow-[0_0_12px_rgba(216,26,33,0.48)]" width="710" height="257" fetchpriority="high">
+        </header>
+<!-- Links Section -->
+        <section class="mb-12 mt-10 flex w-full flex-col items-center gap-5">
+            <h2 class="premium-heading text-lg font-semibold text-white">
+                <span class="oni-mask" aria-hidden="true">👺</span>
+                <span>STREETWEAR</span>
+                <span class="oni-mask" aria-hidden="true">👹</span>
+            </h2>
+            <ul class="flex w-full flex-col gap-4">
+                <li>
+                    <a id="camisas-link" href="https://heyzine.com/flip-book/17a9864401.html" target="_blank" rel="noopener noreferrer" class="catalog-neon catalog-neon-first block w-full rounded-full border border-border-soft bg-black/30 px-6 py-4 text-center text-base font-semibold backdrop-blur-md transition-all duration-300 motion-safe:hover:-translate-y-1 hover:border-theme-red hover:bg-theme-red/20 hover:shadow-[0_0_15px_rgba(216,26,33,0.3)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red shadow-sm">
+                        <svg class="neon-outline-svg" viewBox="0 0 400 74" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                            <rect x="2" y="2" width="396" height="70" rx="35" pathLength="100"></rect>
+                        </svg>
+                        <span class="catalog-label">Camisas (シャツ)</span>
+                    </a>
+                </li>
+                <li>
+                    <a id="camisillas-link" href="https://heyzine.com/flip-book/af8d607512.html" target="_blank" rel="noopener noreferrer" class="catalog-neon catalog-neon-second block w-full rounded-full border border-border-soft bg-black/30 px-6 py-4 text-center text-base font-semibold backdrop-blur-md transition-all duration-300 motion-safe:hover:-translate-y-1 hover:border-theme-red hover:bg-theme-red/20 hover:shadow-[0_0_15px_rgba(216,26,33,0.3)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red shadow-sm">
+                        <svg class="neon-outline-svg" viewBox="0 0 400 74" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                            <rect x="2" y="2" width="396" height="70" rx="35" pathLength="100"></rect>
+                        </svg>
+                        <span class="catalog-label">Camisillas (タンクトップ)</span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <!-- Social Media Section -->
+        <section class="mt-auto flex w-full flex-col items-center gap-4">
+            <h2 class="text-base font-semibold text-white">Redes sociales</h2>
+            <ul class="flex flex-wrap items-center justify-center gap-4">
+                <li>
+                    <a href="https://www.instagram.com/overcitystreetwear/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="block rounded-full p-2 transition-transform duration-300 motion-safe:hover:scale-125 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red text-theme-red hover:text-white drop-shadow-lg">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="size-8 w-8 h-8">
+                            <path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"></path>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </section>
+        
+    </main>
+
+    <script>
+        // Música de fondo local y paisaje animado.
+        const musicToggle = document.getElementById('music-toggle');
+        const lightningFlash = document.getElementById('lightning-flash');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Lluvia ligera realista: gotas rápidas, finas y con deriva suave por el viento.
+        const rainCanvas = document.getElementById('rain-canvas');
+        const rainCtx = rainCanvas ? rainCanvas.getContext('2d', { alpha: true }) : null;
+        let rainWidth = 0, rainHeight = 0, rainDpr = 1;
+        let rainDrops = [], rainLoopRunning = false, rainFrame = null, rainLastTime = 0;
+
+        function makeRainDrop(randomY = true) {
+            const depth = Math.random();
+            return {
+                x: Math.random() * rainWidth,
+                y: randomY ? Math.random() * rainHeight : -Math.random() * 100 - 20,
+                length: 8 + depth * 10 + Math.random() * 3,
+                speed: 2.25 + depth * 2.65 + Math.random() * .45,
+                drift: .48 + Math.random() * .95,
+                opacity: .11 + depth * .13 + Math.random() * .035,
+                width: .55 + depth * .48,
+                slant: 2.5 + depth * 4.5
+            };
+        }
+
+        function resizeRainCanvas() {
+            if (!rainCanvas || !rainCtx) return;
+            rainWidth = window.innerWidth;
+            rainHeight = window.innerHeight;
+            rainDpr = Math.min(window.devicePixelRatio || 1, 1.75);
+            rainCanvas.width = Math.round(rainWidth * rainDpr);
+            rainCanvas.height = Math.round(rainHeight * rainDpr);
+            rainCtx.setTransform(rainDpr, 0, 0, rainDpr, 0, 0);
+            const count = Math.max(62, Math.min(155, Math.round((rainWidth * rainHeight) / 14500)));
+            rainDrops = Array.from({ length: count }, () => makeRainDrop(true));
+        }
+
+        function animateRain(timestamp) {
+            if (!rainCtx || document.hidden) {
+                rainLoopRunning = false; rainFrame = null; rainLastTime = 0; return;
+            }
+            const delta = rainLastTime ? Math.min((timestamp - rainLastTime) / 16.667, 2.5) : 1;
+            rainLastTime = timestamp;
+            rainCtx.clearRect(0, 0, rainWidth, rainHeight);
+            rainCtx.lineCap = 'round';
+            rainCtx.strokeStyle = 'rgba(215, 231, 245, 1)';
+
+            for (const drop of rainDrops) {
+                rainCtx.globalAlpha = drop.opacity;
+                rainCtx.lineWidth = drop.width;
+                rainCtx.beginPath();
+                rainCtx.moveTo(drop.x - drop.slant, drop.y - drop.length);
+                rainCtx.lineTo(drop.x, drop.y);
+                rainCtx.stroke();
+                drop.x += drop.drift * delta;
+                drop.y += drop.speed * delta;
+                if (drop.y > rainHeight + 22 || drop.x > rainWidth + 18) {
+                    Object.assign(drop, makeRainDrop(false));
+                }
+            }
+            rainCtx.globalAlpha = 1;
+            rainFrame = window.requestAnimationFrame(animateRain);
+        }
+
+        function startRainAnimation() {
+            if (rainLoopRunning || !rainCtx || document.hidden) return;
+            rainLoopRunning = true;
+            rainLastTime = 0;
+            rainFrame = window.requestAnimationFrame(animateRain);
+        }
+
+        resizeRainCanvas();
+        startRainAnimation();
+        window.addEventListener('resize', resizeRainCanvas, { passive: true });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (rainFrame !== null) window.cancelAnimationFrame(rainFrame);
+                rainFrame = null; rainLoopRunning = false; rainLastTime = 0;
+            } else startRainAnimation();
+        });
+
+        // Humo bajo: entra desde fuera de los bordes inferiores, se eleva y cruza la escena.
+        const fogCanvas = document.getElementById('fog-canvas');
+        const fogCtx = fogCanvas ? fogCanvas.getContext('2d', { alpha: true }) : null;
+        let fogWidth = 0, fogHeight = 0, fogDpr = 1, fogBanks = [];
+        let fogRunning = false, fogFrame = null, fogLastTime = 0;
+
+        function makeFogBank(initial = true, forcedDirection = null) {
+            const rx = 170 + Math.random() * 260;
+            const ry = 30 + Math.random() * 48;
+            const direction = forcedDirection ?? (Math.random() < .5 ? 1 : -1);
+            const startX = direction === 1
+                ? -rx * (.72 + Math.random() * .48)
+                : fogWidth + rx * (.72 + Math.random() * .48);
+            return {
+                x: initial ? startX : (direction === 1 ? -rx * 1.05 : fogWidth + rx * 1.05),
+                baseY: initial
+                    ? fogHeight + ry * (.05 + Math.random() * .55)
+                    : fogHeight + ry * (.15 + Math.random() * .5),
+                rx,
+                ry,
+                direction,
+                speed: (.85 + Math.random() * .85) * direction,
+                rise: .10 + Math.random() * .20,
+                alpha: .92 + Math.random() * .42,
+                phase: Math.random() * Math.PI * 2,
+                age: initial ? Math.random() * 85 : 0
+            };
+        }
+
+        function resizeFogCanvas() {
+            if (!fogCanvas || !fogCtx) return;
+            fogWidth = innerWidth; fogHeight = innerHeight;
+            fogDpr = Math.min(devicePixelRatio || 1, 1.5);
+            fogCanvas.width = Math.round(fogWidth * fogDpr);
+            fogCanvas.height = Math.round(fogHeight * fogDpr);
+            fogCtx.setTransform(fogDpr, 0, 0, fogDpr, 0, 0);
+            // Las nubes comienzan parcialmente fuera del encuadre para que se vea cómo entra la bruma.
+            fogBanks = Array.from({ length: 10 }, (_, i) => makeFogBank(true, i % 2 === 0 ? 1 : -1));
+        }
+
+        function animateFog(timestamp) {
+            if (!fogCtx || document.hidden) { fogRunning = false; fogFrame = null; fogLastTime = 0; return; }
+            const delta = fogLastTime ? Math.min((timestamp - fogLastTime) / 16.667, 2.5) : 1;
+            fogLastTime = timestamp;
+            fogCtx.clearRect(0, 0, fogWidth, fogHeight);
+            fogCtx.save();
+            fogCtx.globalCompositeOperation = 'screen';
+            fogCtx.filter = 'blur(22px)';
+
+            for (const cloud of fogBanks) {
+                cloud.x += cloud.speed * delta;
+                cloud.baseY -= cloud.rise * delta;
+                cloud.phase += .006 * delta;
+                cloud.age += delta;
+
+                const y = cloud.baseY + Math.sin(cloud.phase) * 7;
+                const fadeIn = Math.min(1, cloud.age / 95);
+                const edgeFade = Math.max(0, Math.min(1,
+                    (cloud.x + cloud.rx) / (cloud.rx * .75),
+                    (fogWidth + cloud.rx - cloud.x) / (cloud.rx * .75)
+                ));
+                const opacity = fadeIn * edgeFade * cloud.alpha;
+                const gradient = fogCtx.createRadialGradient(cloud.x, y, 2, cloud.x, y, cloud.rx);
+                gradient.addColorStop(0, `rgba(205, 218, 231, ${.145 * opacity})`);
+                gradient.addColorStop(.38, `rgba(177, 196, 215, ${.092 * opacity})`);
+                gradient.addColorStop(.72, `rgba(153, 177, 201, ${.042 * opacity})`);
+                gradient.addColorStop(1, 'rgba(143, 169, 191, 0)');
+                fogCtx.fillStyle = gradient;
+                fogCtx.beginPath();
+                fogCtx.ellipse(cloud.x, y, cloud.rx, cloud.ry, 0, 0, Math.PI * 2);
+                fogCtx.fill();
+
+                const leftEdge = cloud.x + cloud.rx;
+                const rightEdge = cloud.x - cloud.rx;
+                if ((cloud.direction === 1 && rightEdge > fogWidth + 100) ||
+                    (cloud.direction === -1 && leftEdge < -100)) {
+                    Object.assign(cloud, makeFogBank(false, cloud.direction));
+                }
+            }
+            fogCtx.restore();
+            fogFrame = requestAnimationFrame(animateFog);
+        }
+
+        function startFogAnimation() {
+            if (fogRunning || !fogCtx || document.hidden) return;
+            fogRunning = true; fogLastTime = 0;
+            fogFrame = requestAnimationFrame(animateFog);
+        }
+
+        resizeFogCanvas();
+        startFogAnimation();
+        window.addEventListener('resize', resizeFogCanvas, { passive: true });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (fogFrame !== null) cancelAnimationFrame(fogFrame);
+                fogFrame = null; fogRunning = false; fogLastTime = 0;
+            } else startFogAnimation();
+        });
+
+        // Pétalos Sakura: flotan desde la zona superior izquierda y cruzan la escena con el viento.
+        const petalsCanvas = document.getElementById('sakura-petals-canvas');
+        const petalsCtx = petalsCanvas ? petalsCanvas.getContext('2d', { alpha: true }) : null;
+        let petalsWidth = 0, petalsHeight = 0, petalsDpr = 1, sakuraPetals = [];
+        let petalsRunning = false, petalsFrame = null, petalsLastTime = 0;
+
+        function makeSakuraPetal(initial = true) {
+            const size = 3.1 + Math.random() * 3.6;
+            return {
+                x: 18 + Math.random() * Math.min(420, petalsWidth * .5),
+                y: initial ? Math.random() * Math.min(235, petalsHeight * .35) : -12 - Math.random() * 110,
+                size,
+                vx: .55 + Math.random() * 1.25,
+                vy: .38 + Math.random() * .72,
+                rotation: Math.random() * Math.PI * 2,
+                spin: (Math.random() - .5) * .085,
+                wave: Math.random() * Math.PI * 2,
+                waveSpeed: .025 + Math.random() * .035,
+                opacity: .48 + Math.random() * .42,
+                hue: Math.random() > .65 ? '#ffd1e4' : (Math.random() > .5 ? '#f3a1c3' : '#d96d9b')
+            };
+        }
+
+        function resizePetalsCanvas() {
+            if (!petalsCanvas || !petalsCtx) return;
+            petalsWidth = innerWidth; petalsHeight = innerHeight;
+            petalsDpr = Math.min(devicePixelRatio || 1, 1.6);
+            petalsCanvas.width = Math.round(petalsWidth * petalsDpr);
+            petalsCanvas.height = Math.round(petalsHeight * petalsDpr);
+            petalsCtx.setTransform(petalsDpr, 0, 0, petalsDpr, 0, 0);
+            sakuraPetals = Array.from({ length: Math.max(14, Math.min(24, Math.round(petalsWidth / 70))) }, () => makeSakuraPetal(true));
+        }
+
+        function animateSakuraPetals(timestamp) {
+            if (!petalsCtx || document.hidden) { petalsRunning = false; petalsFrame = null; petalsLastTime = 0; return; }
+            const delta = petalsLastTime ? Math.min((timestamp - petalsLastTime) / 16.667, 2.5) : 1;
+            petalsLastTime = timestamp;
+            petalsCtx.clearRect(0, 0, petalsWidth, petalsHeight);
+            for (const petal of sakuraPetals) {
+                petal.wave += petal.waveSpeed * delta;
+                petal.x += (petal.vx + Math.sin(petal.wave) * .72) * delta;
+                petal.y += (petal.vy + Math.cos(petal.wave * .7) * .25) * delta;
+                petal.rotation += petal.spin * delta;
+                petalsCtx.save();
+                petalsCtx.translate(petal.x, petal.y);
+                petalsCtx.rotate(petal.rotation);
+                petalsCtx.globalAlpha = petal.opacity;
+                petalsCtx.shadowColor = 'rgba(255, 132, 187, .55)';
+                petalsCtx.shadowBlur = 7;
+                petalsCtx.fillStyle = petal.hue;
+                petalsCtx.beginPath();
+                petalsCtx.moveTo(0, -petal.size * 1.55);
+                petalsCtx.quadraticCurveTo(petal.size * 1.5, -petal.size * .45, 0, petal.size * 1.55);
+                petalsCtx.quadraticCurveTo(-petal.size * 1.5, -petal.size * .45, 0, -petal.size * 1.55);
+                petalsCtx.fill();
+                petalsCtx.shadowBlur = 0;
+                petalsCtx.strokeStyle = 'rgba(255, 231, 241, .48)';
+                petalsCtx.lineWidth = .65;
+                petalsCtx.beginPath();
+                petalsCtx.moveTo(0, -petal.size);
+                petalsCtx.lineTo(0, petal.size * 1.05);
+                petalsCtx.stroke();
+                petalsCtx.restore();
+                if (petal.x > petalsWidth + 25 || petal.y > petalsHeight + 25) Object.assign(petal, makeSakuraPetal(false));
+            }
+            petalsFrame = requestAnimationFrame(animateSakuraPetals);
+        }
+
+        function startPetalsAnimation() {
+            if (petalsRunning || !petalsCtx || document.hidden) return;
+            petalsRunning = true; petalsLastTime = 0;
+            petalsFrame = requestAnimationFrame(animateSakuraPetals);
+        }
+
+        resizePetalsCanvas();
+        startPetalsAnimation();
+        window.addEventListener('resize', resizePetalsCanvas, { passive: true });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                startFogAnimation();
+                startPetalsAnimation();
+            }
+        });
+
+        // Música de fondo local. El archivo solo comienza a descargarse tras un clic.
+        const bgmAudio = document.getElementById('bgm-audio');
+        let audioStartPending = false;
+        bgmAudio.volume = 0.68;
+
+        function setMusicButton(isPlaying, label = null) {
+            musicToggle.textContent = label || (isPlaying ? '♫ Pausar música' : '♫ Activar música');
+            musicToggle.setAttribute('aria-pressed', String(isPlaying));
+            musicToggle.setAttribute('aria-label', isPlaying ? 'Pausar música japonesa' : 'Activar música japonesa');
+            musicToggle.title = isPlaying ? 'La música japonesa está sonando' : 'Activar música japonesa de fondo';
+        }
+
+        musicToggle.addEventListener('click', async () => {
+            if (audioStartPending) return;
+
+            if (!bgmAudio.paused) {
+                bgmAudio.pause();
+                return;
+            }
+
+            audioStartPending = true;
+            setMusicButton(false, '♫ Cargando música…');
+            musicToggle.disabled = true;
+
+            try {
+                await bgmAudio.play();
+                setMusicButton(true);
+            } catch (error) {
+                console.error('No se pudo iniciar la música:', error);
+                setMusicButton(false, '♫ Reintentar música');
+                musicToggle.title = 'No se pudo cargar assets/musica-fondo.mp3. Verifica que la carpeta assets esté junto a index.html.';
+            } finally {
+                audioStartPending = false;
+                musicToggle.disabled = false;
+            }
+        });
+
+        bgmAudio.addEventListener('playing', () => setMusicButton(true));
+        bgmAudio.addEventListener('pause', () => setMusicButton(false));
+        bgmAudio.addEventListener('error', () => {
+            setMusicButton(false, '♫ Reintentar música');
+            musicToggle.title = 'No se encontró el archivo assets/musica-fondo.mp3.';
+        });
+
+        setMusicButton(false);
+
+        // Relámpagos lejanos y ocasionales: solo destello visual, sin sonido de trueno.
+        function lightningStrike() {
+            if (prefersReducedMotion) return;
+            lightningFlash.classList.remove('strike');
+            void lightningFlash.offsetWidth;
+            lightningFlash.classList.add('strike');
+            window.setTimeout(() => lightningFlash.classList.remove('strike'), 800);
+        }
+
+        function scheduleLightning() {
+            const delay = 11000 + Math.random() * 13000;
+            window.setTimeout(() => {
+                lightningStrike();
+                if (Math.random() > 0.72) {
+                    window.setTimeout(lightningStrike, 240 + Math.random() * 500);
+                }
+                scheduleLightning();
+            }, delay);
+        }
+        if (!prefersReducedMotion) scheduleLightning();
+
+        // Modal para compartir.
+        const shareDialog = document.getElementById('shareDialog');
+        const openShareBtn = document.getElementById('openShareBtn');
+        const closeShareBtn = document.getElementById('closeShareBtn');
+
+        openShareBtn.addEventListener('click', () => shareDialog.showModal());
+        closeShareBtn.addEventListener('click', () => shareDialog.close());
+
+        shareDialog.addEventListener('click', (event) => {
+            const bounds = shareDialog.getBoundingClientRect();
+            if (
+                event.clientX < bounds.left ||
+                event.clientX > bounds.right ||
+                event.clientY < bounds.top ||
+                event.clientY > bounds.bottom
+            ) {
+                shareDialog.close();
+            }
+        });
+
+        // Enlaces dinámicos para compartir la página actual.
+        const currentUrl = encodeURIComponent(window.location.href);
+        const currentTitle = encodeURIComponent('OverCity Streetwear');
+
+        document.getElementById('waLink').href =
+            `https://wa.me/?text=${currentTitle}%20${currentUrl}`;
+        document.getElementById('fbLink').href =
+            `https://www.facebook.com/sharer/sharer.php?u=${currentUrl}`;
+        document.getElementById('xLink').href =
+            `https://twitter.com/intent/tweet?url=${currentUrl}&text=${currentTitle}`;
+        document.getElementById('tgLink').href =
+            `https://t.me/share/url?url=${currentUrl}&text=${currentTitle}`;
+        document.getElementById('emailLink').href =
+            `mailto:?subject=${currentTitle}&body=${currentUrl}`;
+
+        // Copiar enlace.
+        const copyLinkBtn = document.getElementById('copyLinkBtn');
+        const copyStatus = document.getElementById('copyStatus');
+
+        copyLinkBtn.addEventListener('click', async () => {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(window.location.href);
+                } else {
+                    const tempInput = document.createElement('input');
+                    tempInput.value = window.location.href;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    tempInput.remove();
+                }
+
+                copyStatus.textContent = '¡Enlace copiado al portapapeles!';
+                copyStatus.classList.add('text-green-400');
+                copyStatus.classList.remove('text-red-400');
+            } catch (error) {
+                copyStatus.textContent = 'No se pudo copiar el enlace.';
+                copyStatus.classList.add('text-red-400');
+                copyStatus.classList.remove('text-green-400');
+            }
+
+            window.setTimeout(() => {
+                copyStatus.textContent = '';
+                copyStatus.classList.remove('text-green-400', 'text-red-400');
+            }, 2500);
+        });
+    </script>
+</body>
+</html>
