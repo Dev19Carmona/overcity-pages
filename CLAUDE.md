@@ -26,6 +26,8 @@ No test runner is configured.
 - `app/api/logo/route.ts` uploads and removes the logo in Vercel Blob.
 - Social networks are a list (`socials`, max 8) chosen from the fixed catalog in `lib/socials.ts`, rendered as a horizontal row of icons (`app/_components/social-icon.tsx`). In the editor each icon is selected to edit its URL, reorder (← →) or remove it.
 - Content lives in Redis under `overcity:content:v2`. If it does not exist, `overcity:content:v1` (the SPEC 02 shape with `instagramUrl`) is read and converted in memory; `v1` is never modified.
+- Background, music and effects are editable (SPEC 05): `SiteContent` has `background` and `music` (`MediaSetting` = `{ source: "default" | "custom" | "none", url }`) and `effectsEnabled`. `default` = the `public/overcity/` assets (`lib/media.ts`), `custom` = a Vercel Blob URL (validated as `https://*.blob.vercel-storage.com`, max 500 chars), `none` = plain navy background / no music button. Missing fields in stored `v2` are filled with defaults on read (same key). `effectsEnabled: false` does not render `SceneEffects`.
+- `app/api/media/route.ts` hands out Vercel Blob client-upload tokens (`handleUpload`) only with a valid `overcity_admin` session (401 otherwise), restricted by path prefix: `background/` (PNG/JPG/WebP, max 5 MB) or `music/` (MP3, max 15 MB); limits live in `lib/content-limits.ts`. The browser uploads straight to Blob from `app/admin/_components/media-uploader.tsx` (the 11 MB default MP3 exceeds Vercel's ~4.5 MB function limit); it does not rely on `onUploadCompleted`. Uploading, removing or restoring only changes the draft; `saveContent` deletes the previous Blob file when a `custom` value is replaced (never `public/` assets).
 - `lib/content.ts` holds the `SiteContent` types, validation and Redis access; `lib/auth.ts` holds the signed session cookie and login rate limit; `lib/redis.ts` is the shared Upstash client.
 - Content that changes over time (texts, links, images) must live in `SiteContent` and be editable from the panel (see `specs/02-admin-de-contenido.md`).
 
@@ -44,7 +46,8 @@ Referencia visual oficial del diseñador: `references/estilo/index.html` y `refe
 - **Iconos sociales:** SVG `currentColor`, `size-8`, rojo `theme-red`, blancos al hover, `hover:scale-125`, `drop-shadow-lg`.
 - **Modales:** `<dialog>` con backdrop `rgba(10,28,41,.85)` y `blur(4px)`, panel marino con `border-theme-red/50`, `rounded-2xl`, `p-6` y sombra roja tenue.
 - **Foco y accesibilidad:** `focus-visible:outline-2 outline-offset-4 outline-theme-red`; texto con contraste mínimo 4.5:1 (iconos 3:1); `aria-label` en todo control de icono.
-- **Recursos:** logo `logo-overcity.png` con resplandor rojo `drop-shadow-[0_0_12px_rgba(216,26,33,0.48)]`; música `musica-fondo.mp3` solo con acción del usuario y `preload="none"`.
+- **Recursos:** logo `logo-overcity.png` con resplandor rojo `drop-shadow-[0_0_12px_rgba(216,26,33,0.48)]`; música `musica-fondo.mp3` con botón flotante de solo icono (altavoz con ondas / silenciado) arriba a la izquierda: intenta sonar al cargar y, si el navegador bloquea el audio automático, empieza con la primera interacción del visitante; `preload="none"`.
+- **Controles flotantes:** nunca van encima de contenido ni de barras. En la página pública el botón de música flota arriba a la izquierda (`z-30`); en `/admin` va dentro de la barra de edición (`MusicToggle` con `inline`), porque la barra cambia de alto en móvil. Antes de colocar un control nuevo, revisa dónde queda en `/` y en `/admin` a 360 px.
 - Los activos viven en `public/overcity/`. Lo que cambia con el tiempo (logo, textos, links y, desde la SPEC 05, fondo y música) sigue la regla de contenido editable del panel.
 
 ## Environment variables
@@ -54,7 +57,7 @@ Copy `.env.example` to `.env.local` for local development. In Vercel, `KV_REST_A
 - `ADMIN_PASSWORD`: password for `/admin`.
 - `ADMIN_SESSION_SECRET`: secret that signs the `overcity_admin` session cookie.
 - `KV_REST_API_URL`, `KV_REST_API_TOKEN`: Upstash Redis (content and login attempt counter).
-- `BLOB_READ_WRITE_TOKEN`: Vercel Blob (logo).
+- `BLOB_READ_WRITE_TOKEN`: Vercel Blob (logo, background and music).
 
 Without Redis the public page still works with the defaults, but in production `/admin` refuses logins.
 

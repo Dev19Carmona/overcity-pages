@@ -22,7 +22,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${inter.variable} h-full antialiased`}>
+    // suppressHydrationWarning: extensiones del navegador inyectan atributos en <html>
+    // antes de hidratar; solo afecta a los atributos de este elemento, no a sus hijos.
+    <html
+      lang="es"
+      suppressHydrationWarning
+      className={`${inter.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

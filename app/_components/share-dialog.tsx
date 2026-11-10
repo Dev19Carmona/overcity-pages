@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import SocialIcon from "@/app/_components/social-icon";
+import type { SocialNetwork } from "@/lib/socials";
 
 const SHARE_TEXT = "OverCity Streetwear";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
 
-function buildNetworks(url: string) {
+function buildNetworks(url: string): { id: SocialNetwork; label: string; href: string }[] {
   const u = encodeURIComponent(url);
   const t = encodeURIComponent(SHARE_TEXT);
   return [
@@ -41,18 +43,10 @@ export default function ShareDialog() {
   const [url, setUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
-  async function open() {
-    const current = window.location.href;
-    setUrl(current);
+  // Siempre se abre el modal propio (no la hoja nativa del sistema) para mantener el estilo.
+  function open() {
+    setUrl(window.location.href);
     setCopied(false);
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: SHARE_TEXT, url: current });
-        return;
-      } catch {
-        // Cancelado o fallido: se muestra el modal como respaldo.
-      }
-    }
     dialogRef.current?.showModal();
   }
 
@@ -73,8 +67,6 @@ export default function ShareDialog() {
   async function copy() {
     setCopied(await copyToClipboard(url));
   }
-
-  const itemClass = `block w-full rounded-full border border-border-soft bg-black/30 px-5 py-3 text-center font-semibold text-white transition hover:border-theme-red hover:bg-theme-red/20 ${focusRing}`;
 
   return (
     <>
@@ -130,24 +122,45 @@ export default function ShareDialog() {
           </button>
         </div>
 
-        <ul className="mt-5 flex flex-col gap-3">
-          <li>
-            <button type="button" onClick={copy} className={itemClass}>
-              Copiar enlace
-            </button>
-            <p role="status" className="mt-2 min-h-5 text-center text-sm text-white/80">
-              {copied ? "¡Enlace copiado!" : ""}
-            </p>
-          </li>
+        <button
+          type="button"
+          onClick={copy}
+          className={`mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-theme-red bg-theme-red/20 px-5 py-3 font-semibold text-white shadow-[0_0_15px_rgba(216,26,33,0.2)] transition hover:bg-theme-red/40 ${focusRing}`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="size-5"
+          >
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          Copiar enlace
+        </button>
+        <p role="status" className="mt-2 min-h-5 text-center text-sm text-white/80">
+          {copied ? "¡Enlace copiado!" : ""}
+        </p>
+
+        <ul className="mt-3 flex flex-wrap items-center justify-center gap-4">
           {buildNetworks(url).map((n) => (
             <li key={n.id}>
               <a
                 href={n.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={itemClass}
+                aria-label={`Compartir en ${n.label}`}
+                title={n.label}
+                className={`group flex size-14 items-center justify-center rounded-full border border-border-soft bg-black/30 text-theme-red drop-shadow-lg backdrop-blur-md transition duration-300 hover:border-theme-red hover:bg-theme-red/20 hover:text-white motion-safe:hover:-translate-y-1 ${focusRing}`}
               >
-                {n.label}
+                <SocialIcon
+                  network={n.id}
+                  className="size-7 transition-transform duration-300 motion-safe:group-hover:scale-125"
+                />
               </a>
             </li>
           ))}

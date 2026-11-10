@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import MusicToggle from "@/app/_components/music-toggle";
 import SiteView from "@/app/_components/site-view";
 import { logoutAction, saveContent } from "@/app/admin/actions";
 import SocialIcon from "@/app/_components/social-icon";
 import LogoUploader from "@/app/admin/_components/logo-uploader";
+import MediaUploader from "@/app/admin/_components/media-uploader";
 import SocialPicker from "@/app/admin/_components/social-picker";
 import {
   MAX_LABEL,
@@ -14,6 +16,7 @@ import {
   MAX_URL,
 } from "@/lib/content-limits";
 import type { LinkItem, SiteContent } from "@/lib/content";
+import { DEFAULT_MUSIC_URL, resolveMediaUrl } from "@/lib/media";
 import { SOCIAL_NETWORKS, type SocialNetwork } from "@/lib/socials";
 
 const inputBase =
@@ -31,7 +34,9 @@ export default function Editor({ initial }: { initial: SiteContent }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, startSaving] = useTransition();
   const [logoBusy, setLogoBusy] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(0); // subidas de fondo/música en curso
   const [selectedSocialId, setSelectedSocialId] = useState<string | null>(null);
+  const musicUrl = resolveMediaUrl(draft.music, DEFAULT_MUSIC_URL);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   const selectedIndex = draft.socials.findIndex((s) => s.id === selectedSocialId);
   const selectedSocial = selectedIndex >= 0 ? draft.socials[selectedIndex] : null;
@@ -91,6 +96,10 @@ export default function Editor({ initial }: { initial: SiteContent }) {
     value: string,
   ) {
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function trackMediaBusy(busy: boolean) {
+    setMediaBusy((count) => count + (busy ? 1 : -1));
   }
 
   function setSocial(id: string, url: string) {
@@ -175,7 +184,10 @@ export default function Editor({ initial }: { initial: SiteContent }) {
   return (
     <>
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-border-soft bg-theme-navy/90 px-4 py-3 backdrop-blur">
-        <span className="text-sm font-semibold">Modo edición</span>
+        <div className="flex items-center gap-3">
+          {musicUrl && <MusicToggle key={musicUrl} src={musicUrl} inline />}
+          <span className="text-sm font-semibold">Modo edición</span>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {message && (
             <span
@@ -187,7 +199,7 @@ export default function Editor({ initial }: { initial: SiteContent }) {
           )}
           <button
             type="button"
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || mediaBusy > 0}
             onClick={save}
             className={`${barButton} border-theme-red bg-theme-red/20`}
           >
@@ -325,6 +337,37 @@ export default function Editor({ initial }: { initial: SiteContent }) {
             >
               <SocialIcon network={social.network} className="size-8" />
             </button>
+          ),
+          settings: (
+            <section
+              aria-label="Fondo, música y efectos"
+              className="mt-10 flex w-full flex-col gap-4"
+            >
+              <MediaUploader
+                kind="background"
+                value={draft.background}
+                onChange={(background) => setDraft((current) => ({ ...current, background }))}
+                onBusyChange={trackMediaBusy}
+              />
+              <MediaUploader
+                kind="music"
+                value={draft.music}
+                onChange={(music) => setDraft((current) => ({ ...current, music }))}
+                onBusyChange={trackMediaBusy}
+              />
+              <label className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-dashed border-white/30 bg-black/30 p-4 text-sm font-semibold backdrop-blur-md focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-theme-red">
+                <span>Efectos (lluvia, humo, pétalos y relámpagos)</span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={draft.effectsEnabled}
+                  onChange={(e) =>
+                    setDraft((current) => ({ ...current, effectsEnabled: e.target.checked }))
+                  }
+                  className="size-5 shrink-0 accent-theme-red"
+                />
+              </label>
+            </section>
           ),
           afterSocials: (
             <>
