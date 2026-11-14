@@ -1,42 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
-import NightScene from "@/app/_components/night-scene";
-import Editor from "@/app/admin/_components/editor";
-import LoginForm from "@/app/admin/_components/login-form";
-import { isAdmin } from "@/lib/auth";
-import { getContent } from "@/lib/content";
+import LinksAdmin from "@/app/admin/_components/links-admin";
+import PanelFallback from "@/app/admin/_components/panel-fallback";
+import { loadAdminContent } from "@/app/admin/_lib";
 
-export const metadata: Metadata = {
-  title: "Administración · OverCity",
-  robots: { index: false, follow: false },
-};
-
-async function AdminGate() {
-  if (!(await isAdmin())) {
-    return (
-      <>
-        <NightScene />
-        <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-          <h1 className="text-2xl font-extrabold tracking-tight">Administración</h1>
-          <LoginForm />
-        </main>
-      </>
-    );
-  }
-
-  return <Editor initial={await getContent()} />;
+async function LinksData() {
+  const content = await loadAdminContent();
+  if (!content) return null;
+  return <LinksAdmin initial={content} />;
 }
 
 export default function AdminPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="relative z-10 flex flex-1 items-center justify-center">
-          <p className="text-sm">Cargando…</p>
-        </main>
-      }
-    >
-      <AdminGate />
+    <Suspense fallback={<PanelFallback />}>
+      <LinksData />
     </Suspense>
   );
 }

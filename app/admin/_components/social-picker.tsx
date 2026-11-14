@@ -33,7 +33,7 @@ export default function SocialPicker({
     <div
       role="group"
       aria-label="Elige una red"
-      className="flex w-full flex-col items-center gap-3 rounded-2xl border border-dashed border-white/30 bg-white/5 p-4"
+      className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border-soft bg-white/5 p-4"
     >
       <p className="text-sm font-semibold">Elige una red</p>
       <ul className="grid w-full grid-cols-3 gap-2">

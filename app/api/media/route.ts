@@ -4,10 +4,12 @@ import {
   BACKGROUND_TYPES,
   MAX_BACKGROUND_BYTES,
   MAX_MUSIC_BYTES,
+  MAX_PRODUCT_IMAGE_BYTES,
   MUSIC_TYPES,
+  PRODUCT_IMAGE_TYPES,
 } from "@/lib/content-limits";
 
-// Entrega tokens para que el navegador suba fondo y música directo a Vercel Blob
+// Entrega tokens para que el navegador suba fondo, música e imágenes del catálogo directo a Vercel Blob
 // (el MP3 supera el tope de ~4,5 MB de las funciones). Solo con sesión de admin.
 // No depende de onUploadCompleted: el guardado escribe la URL que devuelve la subida.
 function rules(pathname: string) {
@@ -16,6 +18,9 @@ function rules(pathname: string) {
   }
   if (pathname.startsWith("music/")) {
     return { allowedContentTypes: MUSIC_TYPES, maximumSizeInBytes: MAX_MUSIC_BYTES };
+  }
+  if (pathname.startsWith("catalog/")) {
+    return { allowedContentTypes: PRODUCT_IMAGE_TYPES, maximumSizeInBytes: MAX_PRODUCT_IMAGE_BYTES };
   }
   return null;
 }

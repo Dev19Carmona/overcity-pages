@@ -105,7 +105,7 @@ export default function MediaUploader({
   return (
     <section
       aria-label={config.title}
-      className="flex w-full flex-col items-center gap-3 rounded-2xl border border-dashed border-white/30 bg-black/30 p-4 backdrop-blur-md"
+      className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border-soft bg-black/40 p-4 backdrop-blur-md"
     >
       <h3 className="text-sm font-semibold">{config.title}</h3>
 
