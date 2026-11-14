@@ -1,42 +1,23 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
-import NightScene from "@/app/_components/night-scene";
-import LoginForm from "@/app/admin/_components/login-form";
-import CatalogEditor from "@/app/admin/catalogo/_components/catalog-editor";
-import { isAdmin } from "@/lib/auth";
-import { getCatalog } from "@/lib/catalog";
+import PanelFallback from "@/app/admin/_components/panel-fallback";
+import ProductsAdmin from "@/app/admin/catalogo/_components/products-admin";
+import { loadAdminCatalog } from "@/app/admin/_lib";
 
-export const metadata: Metadata = {
-  title: "Catálogo · Administración · OverCity",
-  robots: { index: false, follow: false },
-};
-
-async function CatalogGate() {
-  if (!(await isAdmin())) {
-    return (
-      <>
-        <NightScene />
-        <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-          <h1 className="text-2xl font-extrabold tracking-tight">Administración</h1>
-          <LoginForm />
-        </main>
-      </>
-    );
-  }
-
-  return <CatalogEditor initial={await getCatalog()} />;
+async function ProductsData({ searchParams }: { searchParams: PageProps<"/admin/catalogo">["searchParams"] }) {
+  const catalog = await loadAdminCatalog();
+  if (!catalog) return null;
+  const { categoria } = await searchParams;
+  const initialCategory =
+    typeof categoria === "string" && catalog.categories.some((c) => c.id === categoria)
+      ? categoria
+      : null;
+  return <ProductsAdmin initial={catalog} initialCategory={initialCategory} />;
 }
 
-export default function AdminCatalogPage() {
+export default function AdminProductsPage({ searchParams }: PageProps<"/admin/catalogo">) {
   return (
-    <Suspense
-      fallback={
-        <main className="relative z-10 flex flex-1 items-center justify-center">
-          <p className="text-sm">Cargando…</p>
-        </main>
-      }
-    >
-      <CatalogGate />
+    <Suspense fallback={<PanelFallback />}>
+      <ProductsData searchParams={searchParams} />
     </Suspense>
   );
 }

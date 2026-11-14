@@ -37,7 +37,7 @@ export default function LogoUploader({
   return (
     <section
       aria-label="Logo"
-      className="mb-4 flex w-full flex-col items-center gap-3 rounded-2xl border border-dashed border-white/30 bg-black/30 p-4 backdrop-blur-md"
+      className="flex w-full flex-col items-center gap-3 rounded-2xl border border-border-soft bg-black/40 p-4 backdrop-blur-md"
     >
       <div className="flex h-28 w-full items-center justify-center rounded-xl bg-black/30">
         <Image

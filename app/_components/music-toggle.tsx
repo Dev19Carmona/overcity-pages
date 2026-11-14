@@ -5,13 +5,7 @@ import { useEffect, useRef, useState } from "react";
 // Botón flotante de solo icono (z-30), arriba a la izquierda.
 // La música intenta sonar al cargar; si el navegador bloquea el audio automático,
 // empieza con la primera interacción del visitante (toque, clic o tecla).
-export default function MusicToggle({
-  src,
-  inline = false,
-}: {
-  src: string;
-  inline?: boolean; // true = dentro de una barra (panel); false = flotante arriba a la izquierda
-}) {
+export default function MusicToggle({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -83,9 +77,7 @@ export default function MusicToggle({
         aria-label={label}
         aria-pressed={playing}
         title={label}
-        className={`${
-          inline ? "relative size-9" : "fixed left-3 top-3 z-30 size-11 sm:left-[18px] sm:top-[18px]"
-        } flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-theme-red/65 bg-theme-navy/90 text-theme-red shadow-[0_0_18px_rgba(216,26,33,0.18)] backdrop-blur-md transition duration-300 hover:bg-theme-red/25 hover:text-white hover:shadow-[0_0_22px_rgba(216,26,33,0.38)] motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red`}
+        className={`fixed left-3 top-3 z-30 size-11 sm:left-[18px] sm:top-[18px] flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-theme-red/65 bg-theme-navy/90 text-theme-red shadow-[0_0_18px_rgba(216,26,33,0.18)] backdrop-blur-md transition duration-300 hover:bg-theme-red/25 hover:text-white hover:shadow-[0_0_22px_rgba(216,26,33,0.38)] motion-safe:hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red`}
       >
         <svg
           viewBox="0 0 24 24"

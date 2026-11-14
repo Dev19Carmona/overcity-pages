@@ -14,10 +14,11 @@ export const MUSIC_TYPES = ["audio/mpeg"];
 // Catálogo de productos (SPEC 06). Los comparten el servidor, la ruta de subida y el editor.
 export const MAX_PRODUCTS = 40;
 export const MAX_CATEGORIES = 10;
-export const MAX_PRODUCT_IMAGES = 4;
+export const MAX_PRODUCT_IMAGES = 8; // SPEC 07 (antes 4)
 export const MAX_PRODUCT_IMAGE_BYTES = 2 * 1024 * 1024;
 export const MAX_PRODUCT_NAME = 60;
 export const MAX_PRODUCT_DESCRIPTION = 500;
 export const MAX_CATEGORY_NAME = 40;
+export const MAX_STOCK = 9999; // unidades por talla (SPEC 07)
 export const MAX_PRICE = 999_999_999;
 export const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];

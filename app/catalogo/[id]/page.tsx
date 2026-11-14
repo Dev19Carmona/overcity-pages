@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import NightScene from "@/app/_components/night-scene";
+import ProductDetail from "@/app/catalogo/[id]/_components/product-detail";
+import StoreShell, { STORE_WIDTH } from "@/app/_components/store-shell";
 import { getPublicCatalog } from "@/lib/catalog";
-import { formatPrice } from "@/lib/catalog-shared";
 import { getPublicContent } from "@/lib/content";
 
 const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
 
 // La ruta bloquea hasta saber si el producto existe, para poder responder 404 en vez de enviar
 // primero un esqueleto con Suspense (que dejaría el estado en 200). Sin esto, el modo desarrollo
@@ -46,63 +45,34 @@ export default async function ProductPage({ params }: PageProps<"/catalogo/[id]"
   const category = catalog.categories.find((item) => item.id === product.categoryId);
 
   return (
-    <>
-      <NightScene background={content.background} effectsEnabled={content.effectsEnabled} />
-      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 pb-10 pt-8">
-        <Link
-          href="/catalogo"
-          className={`self-start rounded-full border border-border-soft bg-black/30 px-4 py-2 text-sm font-semibold backdrop-blur-md transition hover:border-theme-red ${focusRing}`}
-        >
-          ← {catalog.title}
-        </Link>
-
-        <ul
-          aria-label={`Imágenes de ${product.name}`}
-          className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-        >
-          {product.images.map((url, index) => (
-            <li key={url} className="w-full shrink-0 snap-center">
-              <Image
-                src={url}
-                alt={`${product.name}, imagen ${index + 1}`}
-                width={800}
-                height={800}
-                unoptimized
-                priority={index === 0}
-                className="aspect-square w-full rounded-2xl border border-border-soft object-cover"
-              />
-            </li>
-          ))}
-        </ul>
-
-        <div className="flex flex-col gap-2">
-          {category && <p className="text-xs font-semibold">{category.name}</p>}
-          <h1 className="break-words text-2xl font-semibold tracking-[.055em] text-white [text-shadow:0_0_14px_rgba(216,26,33,0.45)]">
-            {product.name}
-          </h1>
-          {product.price !== null && (
-            <p className="text-xl font-semibold text-theme-red">
-              {formatPrice(product.price, catalog.currency)}
-            </p>
-          )}
-          {product.description && (
-            <p className="whitespace-pre-line break-words text-sm text-white">
-              {product.description}
-            </p>
+    <StoreShell content={content} catalogTitle={catalog.title} active="catalog">
+      <main className={`${STORE_WIDTH} flex flex-1 flex-col gap-[18px] pb-14 pt-[clamp(16px,3vw,32px)]`}>
+        <div className="flex items-center gap-2 text-[13px] text-white/75">
+          <Link
+            href="/catalogo"
+            className={`rounded-full border border-border-soft bg-black/30 px-3.5 py-[7px] font-semibold text-white transition hover:border-theme-red ${focusRing}`}
+          >
+            ← {catalog.title}
+          </Link>
+          {category && (
+            <>
+              <span aria-hidden="true">/</span>
+              <Link
+                href={`/catalogo?categoria=${category.id}`}
+                className={`truncate hover:text-white ${focusRing}`}
+              >
+                {category.name}
+              </Link>
+            </>
           )}
         </div>
-
-        {product.buyUrl && (
-          <a
-            href={product.buyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`block w-full rounded-full border border-theme-red bg-theme-red/20 px-6 py-4 text-center text-base font-semibold text-white shadow-sm backdrop-blur-md transition-all duration-300 motion-safe:hover:-translate-y-1 hover:bg-theme-red/40 hover:shadow-[0_0_15px_rgba(216,26,33,0.3)] ${focusRing}`}
-          >
-            Comprar
-          </a>
-        )}
+        <ProductDetail
+          key={product.id}
+          product={product}
+          categoryName={category?.name ?? null}
+          currency={catalog.currency}
+        />
       </main>
-    </>
+    </StoreShell>
   );
 }
