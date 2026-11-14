@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import MusicToggle from "@/app/_components/music-toggle";
 import NightScene from "@/app/_components/night-scene";
@@ -50,18 +51,49 @@ function neonStyle(count: number, index: number): CSSProperties | undefined {
   };
 }
 
+const linkButtonClass = `catalog-neon block w-full rounded-full border border-border-soft bg-black/30 px-6 py-4 text-center text-base font-semibold text-white shadow-sm backdrop-blur-md transition-all duration-300 motion-safe:hover:-translate-y-1 hover:border-theme-red hover:bg-theme-red/20 hover:shadow-[0_0_15px_rgba(216,26,33,0.3)] ${focusRing}`;
+
+// Contenido del botón: trazo de neón en el perímetro y texto.
+function LinkButtonInner({
+  label,
+  style,
+}: {
+  label: string;
+  style: CSSProperties | undefined;
+}) {
+  return (
+    <>
+      <svg
+        className="neon-outline-svg"
+        viewBox="0 0 400 74"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        focusable="false"
+        style={style}
+      >
+        <rect x="2" y="2" width="396" height="70" rx="35" pathLength="100" />
+      </svg>
+      <span className="catalog-label">{label}</span>
+    </>
+  );
+}
+
 export default function SiteView({
   content,
   slots = {},
   editing = false,
+  catalogLabel = null,
 }: {
   content: SiteContent;
   slots?: SiteViewSlots;
   editing?: boolean;
+  // Título del catálogo: si viene, se muestra el botón automático hacia /catalogo en primer lugar.
+  catalogLabel?: string | null;
 }) {
   // Sin redes, la sección solo se ve en el editor para poder agregar la primera.
   const showSocials = editing || content.socials.length > 0;
-  const linkCount = content.links.length;
+  const catalogOffset = !editing && catalogLabel ? 1 : 0;
+  const linkCount = content.links.length + catalogOffset;
   const musicUrl = resolveMediaUrl(content.music, DEFAULT_MUSIC_URL);
 
   return (
@@ -96,6 +128,13 @@ export default function SiteView({
             <span className="oni-mask" aria-hidden="true">👹</span>
           </h2>
           <ul className="flex w-full flex-col gap-4">
+            {catalogOffset === 1 && catalogLabel && (
+              <li>
+                <Link href="/catalogo" className={linkButtonClass}>
+                  <LinkButtonInner label={catalogLabel} style={neonStyle(linkCount, 0)} />
+                </Link>
+              </li>
+            )}
             {content.links.map((link, index) => (
               <li key={link.id}>
                 {slots.link ? (
@@ -105,19 +144,12 @@ export default function SiteView({
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`catalog-neon block w-full rounded-full border border-border-soft bg-black/30 px-6 py-4 text-center text-base font-semibold text-white shadow-sm backdrop-blur-md transition-all duration-300 motion-safe:hover:-translate-y-1 hover:border-theme-red hover:bg-theme-red/20 hover:shadow-[0_0_15px_rgba(216,26,33,0.3)] ${focusRing}`}
+                    className={linkButtonClass}
                   >
-                    <svg
-                      className="neon-outline-svg"
-                      viewBox="0 0 400 74"
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                      focusable="false"
-                      style={neonStyle(linkCount, index)}
-                    >
-                      <rect x="2" y="2" width="396" height="70" rx="35" pathLength="100" />
-                    </svg>
-                    <span className="catalog-label">{link.label}</span>
+                    <LinkButtonInner
+                      label={link.label}
+                      style={neonStyle(linkCount, index + catalogOffset)}
+                    />
                   </a>
                 )}
               </li>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import MusicToggle from "@/app/_components/music-toggle";
 import SiteView from "@/app/_components/site-view";
@@ -213,6 +214,9 @@ export default function Editor({ initial }: { initial: SiteContent }) {
           >
             Descartar cambios
           </button>
+          <Link href="/admin/catalogo" className={barButton}>
+            Catálogo
+          </Link>
           <form action={logoutAction}>
             <button type="submit" className={barButton}>
               Cerrar sesión
