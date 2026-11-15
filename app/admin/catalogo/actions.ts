@@ -11,11 +11,9 @@ import {
   type Catalog,
 } from "@/lib/catalog";
 import {
-  emptyStock,
   normalizeWhatsapp,
-  ONE_SIZE,
+  resizeStock,
   sizesFor,
-  stockTotal,
   type CatalogCategory,
   type CatalogCurrency,
 } from "@/lib/catalog-shared";
@@ -100,7 +98,8 @@ export async function saveCatalogSettings(input: {
 
 // Reemplaza la lista de categorías (crear, renombrar, reordenar, talla única, quitar).
 // Los productos de una categoría quitada quedan sin categoría; si cambian sus tallas, el stock
-// se ajusta (talla única = suma de todo; de única a varias tallas empieza en 0).
+// se ajusta por color (talla única = suma de las tallas de ese color; de única a varias tallas
+// empieza en 0).
 export async function saveCategories(
   categories: CatalogCategory[],
 ): Promise<CatalogActionResult> {
@@ -111,14 +110,7 @@ export async function saveCategories(
       const categoryId =
         product.categoryId !== null && byId.has(product.categoryId) ? product.categoryId : null;
       const sizes = sizesFor(categoryId === null ? null : byId.get(categoryId));
-      const sameSizes =
-        Object.keys(product.stock).length === sizes.length &&
-        sizes.every((size) => size in product.stock);
-      const stock = sameSizes
-        ? product.stock
-        : sizes.length === 1 && sizes[0] === ONE_SIZE
-          ? { [ONE_SIZE]: stockTotal(product) }
-          : emptyStock(sizes);
+      const stock = resizeStock(product.stock, product.colors, sizes);
       return { ...product, categoryId, stock };
     });
     return { ...current, categories, products };

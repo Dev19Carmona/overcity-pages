@@ -2,9 +2,11 @@
 import {
   CATALOG_COLORS,
   formatPrice,
+  stockOf as productStockOf,
   type CatalogColor,
   type CatalogCurrency,
   type CatalogImage,
+  type ProductStock,
 } from "@/lib/catalog-shared";
 import { MAX_CART_LINES, MAX_STOCK } from "@/lib/content-limits";
 
@@ -13,8 +15,8 @@ export const CART_KEY = "overcity:cart:v1";
 export type CartLine = {
   productId: string;
   color: CatalogColor;
-  size: string; // una clave de product.stock
-  qty: number; // entero 1..stock de esa talla
+  size: string; // una clave de product.stock[color]
+  qty: number; // entero 1..stock de esa combinación color + talla
 };
 
 // Resumen del producto que viaja al navegador (sin descripción).
@@ -24,7 +26,7 @@ export type CartProduct = {
   price: number | null;
   colors: CatalogColor[];
   images: CatalogImage[];
-  stock: Record<string, number>;
+  stock: ProductStock; // stock[color][talla]
 };
 
 export type CartCatalog = {
@@ -39,9 +41,9 @@ export function lineKey(line: Pick<CartLine, "productId" | "color" | "size">): s
   return `${line.productId}|${line.color}|${line.size}`;
 }
 
-function stockOf(product: CartProduct, size: string): number {
-  const units = product.stock[size];
-  return typeof units === "number" ? Math.min(units, MAX_STOCK) : 0;
+// Tope de una línea: stock de esa combinación color + talla.
+export function lineStock(product: CartProduct, color: CatalogColor, size: string): number {
+  return Math.min(productStockOf(product, color, size), MAX_STOCK);
 }
 
 export function readCart(): CartLine[] {
@@ -86,7 +88,7 @@ export function reconcileCart(
   for (const line of lines) {
     const product = byId.get(line.productId);
     if (!product || !product.colors.includes(line.color)) continue;
-    const stock = stockOf(product, line.size);
+    const stock = lineStock(product, line.color, line.size);
     if (stock < 1) continue;
     const key = lineKey(line);
     const qty = Math.min((merged.get(key)?.qty ?? 0) + line.qty, stock);
@@ -107,8 +109,8 @@ export function addLine(lines: CartLine[], line: CartLine, products: CartProduct
   if (!product || !product.colors.includes(line.color)) {
     return { lines, error: "Este producto ya no está disponible." };
   }
-  const stock = stockOf(product, line.size);
-  if (stock < 1) return { lines, error: "Esa talla está agotada." };
+  const stock = lineStock(product, line.color, line.size);
+  if (stock < 1) return { lines, error: "Esa combinación de color y talla está agotada." };
   const key = lineKey(line);
   const existing = lines.find((item) => lineKey(item) === key);
   if (!existing && lines.length >= MAX_CART_LINES) {
@@ -122,7 +124,7 @@ export function addLine(lines: CartLine[], line: CartLine, products: CartProduct
       : [...lines, next],
     error:
       existing && existing.qty + line.qty > stock
-        ? `Solo quedan ${stock} unidades de esa talla.`
+        ? `Solo quedan ${stock} unidades de ese color y talla.`
         : undefined,
   };
 }
@@ -136,7 +138,7 @@ export function setQty(
   return lines.map((line) => {
     if (lineKey(line) !== key) return line;
     const product = products.find((item) => item.id === line.productId);
-    const stock = product ? stockOf(product, line.size) : line.qty;
+    const stock = product ? lineStock(product, line.color, line.size) : line.qty;
     return { ...line, qty: Math.max(1, Math.min(qty, stock)) };
   });
 }

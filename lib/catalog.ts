@@ -25,6 +25,7 @@ import {
   type CatalogCurrency,
   type CatalogImage,
   type CatalogProduct,
+  type ProductStock,
 } from "@/lib/catalog-shared";
 import { getRedis } from "@/lib/redis";
 
@@ -190,23 +191,40 @@ export function validateCatalog(input: unknown): CatalogValidation {
       const sizes = sizesFor(categoryId === null ? null : categoryById.get(categoryId));
       const { stock } = item;
       if (!isRecord(stock)) throw new Error(`El stock del ${label} es inválido.`);
-      if (Object.keys(stock).length !== sizes.length || !sizes.every((size) => size in stock)) {
-        throw new Error(`El stock del ${label} debe tener las tallas ${sizes.join(", ")}.`);
+      if (
+        Object.keys(stock).length !== validColors.length ||
+        !validColors.every((color) => color in stock)
+      ) {
+        throw new Error(`El stock del ${label} debe tener los colores ${validColors.join(", ")}.`);
       }
-      const validStock = Object.fromEntries(
-        sizes.map((size) => {
-          const units = stock[size];
-          if (
-            typeof units !== "number" ||
-            !Number.isInteger(units) ||
-            units < 0 ||
-            units > MAX_STOCK
-          ) {
+      const validStock: ProductStock = Object.fromEntries(
+        validColors.map((color) => {
+          const row = stock[color];
+          if (!isRecord(row)) throw new Error(`El stock del color ${color} del ${label} es inválido.`);
+          if (Object.keys(row).length !== sizes.length || !sizes.every((size) => size in row)) {
             throw new Error(
-              `El stock de la talla ${size} del ${label} debe ser un entero entre 0 y ${MAX_STOCK}.`,
+              `El stock del color ${color} del ${label} debe tener las tallas ${sizes.join(", ")}.`,
             );
           }
-          return [size, units];
+          return [
+            color,
+            Object.fromEntries(
+              sizes.map((size) => {
+                const units = row[size];
+                if (
+                  typeof units !== "number" ||
+                  !Number.isInteger(units) ||
+                  units < 0 ||
+                  units > MAX_STOCK
+                ) {
+                  throw new Error(
+                    `El stock de ${color}, talla ${size}, del ${label} debe ser un entero entre 0 y ${MAX_STOCK}.`,
+                  );
+                }
+                return [size, units];
+              }),
+            ),
+          ];
         }),
       );
 
@@ -263,7 +281,31 @@ function migrateLegacyCatalog(stored: unknown): unknown {
         ...rest,
         colors: ["Negro"],
         images: Array.isArray(images) ? images.map((url) => ({ url, color: "Negro" })) : images,
-        stock: emptyStock(sizesFor(null)),
+        stock: emptyStock(["Negro"], sizesFor(null)),
+      };
+    }),
+  };
+}
+
+// SPEC 09: el stock v2 anterior era un número por talla. Se convierte en memoria a stock por color
+// y talla: cada talla pasa al primer color y los demás quedan en 0 (el total no cambia). La detección
+// es por producto; la clave sigue siendo v2 y el primer guardado escribe la forma nueva.
+function migrateStockShape(stored: unknown): unknown {
+  if (!isRecord(stored) || !Array.isArray(stored.products)) return stored;
+  return {
+    ...stored,
+    products: stored.products.map((product) => {
+      if (!isRecord(product) || !isRecord(product.stock)) return product;
+      const { stock } = product;
+      if (!Object.values(stock).some((value) => typeof value === "number")) return product;
+      const colors = Array.isArray(product.colors) ? product.colors : [];
+      if (colors.length === 0) return product;
+      const zero = Object.fromEntries(Object.keys(stock).map((size) => [size, 0]));
+      return {
+        ...product,
+        stock: Object.fromEntries(
+          colors.map((color, index) => [String(color), index === 0 ? stock : { ...zero }]),
+        ),
       };
     }),
   };
@@ -273,7 +315,7 @@ function migrateLegacyCatalog(stored: unknown): unknown {
 async function loadStored(redis: NonNullable<ReturnType<typeof getRedis>>): Promise<Catalog> {
   const stored = await redis.get<unknown>(CATALOG_KEY);
   if (stored !== null) {
-    const result = validateCatalog(stored);
+    const result = validateCatalog(migrateStockShape(stored));
     return result.ok ? result.catalog : DEFAULT_CATALOG;
   }
   const legacy = await redis.get<unknown>(LEGACY_CATALOG_KEY);
