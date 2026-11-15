@@ -292,8 +292,8 @@ export default function CategoriesAdmin({ initial }: { initial: Catalog }) {
         }}
       >
         <p>
-          Los productos de «{pending?.category.name}» pasarán a las tallas XS a XL y su stock
-          empezará en 0 (aparecerán como agotados) hasta que lo cargues en cada ficha.
+          Los productos de «{pending?.category.name}» pasarán a las tallas XS a XL y el stock de
+          cada color empezará en 0 (aparecerán como agotados) hasta que lo cargues en cada ficha.
         </p>
       </ConfirmDialog>
 

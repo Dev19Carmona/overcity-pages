@@ -10,6 +10,7 @@ import {
   cartSubtotal,
   lineImage,
   lineKey,
+  lineStock,
   lineTotal,
   whatsappUrl,
 } from "@/lib/cart";
@@ -167,7 +168,7 @@ export default function CartDrawer() {
                 const key = lineKey(line);
                 const image = lineImage(product, line.color);
                 const total = lineTotal(line, products);
-                const stock = product.stock[line.size] ?? 0;
+                const stock = lineStock(product, line.color, line.size);
                 return (
                   <li
                     key={key}

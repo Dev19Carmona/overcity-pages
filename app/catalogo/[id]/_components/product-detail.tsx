@@ -6,8 +6,9 @@ import { useCart } from "@/app/_components/cart-provider";
 import { buildInquiryMessage, whatsappUrl } from "@/lib/cart";
 import {
   CATALOG_COLOR_HEX,
+  colorStock,
   formatPrice,
-  stockTotal,
+  stockOf,
   type CatalogColor,
   type CatalogCurrency,
   type CatalogProduct,
@@ -18,8 +19,9 @@ const focusRing =
 
 const arrowButton = `absolute top-1/2 flex size-[42px] -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition hover:border-theme-red ${focusRing}`;
 
-// Galería por color, selector de color y de talla (tachada si no hay stock), cantidad, botón para
-// agregar a la bolsa y consulta por WhatsApp (SPEC 08).
+// Galería por color, selector de color (tachado si no tiene stock en ninguna talla) y de talla
+// (tachada según el stock del color elegido), cantidad, botón para agregar a la bolsa y consulta
+// por WhatsApp (SPEC 08, SPEC 09).
 export default function ProductDetail({
   product,
   categoryName,
@@ -29,7 +31,10 @@ export default function ProductDetail({
   categoryName: string | null;
   currency: CatalogCurrency;
 }) {
-  const [color, setColor] = useState<CatalogColor>(product.colors[0]);
+  // Color inicial: el primero con stock; si ninguno tiene, el primero.
+  const [color, setColor] = useState<CatalogColor>(
+    () => product.colors.find((c) => colorStock(product, c) > 0) ?? product.colors[0],
+  );
   const [index, setIndex] = useState(0);
   const [size, setSize] = useState<string | null>(null);
   const [wantedQty, setWantedQty] = useState(1);
@@ -39,8 +44,10 @@ export default function ProductDetail({
   const images = byColor.length > 0 ? byColor : product.images;
   const current = images[Math.min(index, images.length - 1)];
   const position = Math.min(index, images.length - 1);
-  const soldOut = stockTotal(product) === 0;
-  const units = size ? (product.stock[size] ?? 0) : 0;
+  // Tallas del producto (las mismas en todos los colores) y existencia del color elegido.
+  const sizes = Object.keys(product.stock[product.colors[0]] ?? {});
+  const soldOut = colorStock(product, color) === 0;
+  const units = size ? stockOf(product, color, size) : 0;
   const sizeMessage = soldOut
     ? "Agotado"
     : !size
@@ -49,7 +56,7 @@ export default function ProductDetail({
         ? `¡Quedan ${units}!`
         : "Disponible";
 
-  // La cantidad nunca pasa del stock de la talla elegida.
+  // La cantidad nunca pasa del stock de la combinación color + talla elegida.
   const qty = Math.max(1, Math.min(wantedQty, units || 1));
   const canAdd = !soldOut && size !== null && units > 0;
   const addLabel = soldOut
@@ -167,27 +174,33 @@ export default function ProductDetail({
             Color: <strong>{color}</strong>
           </div>
           <div className="flex flex-wrap gap-2">
-            {product.colors.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={c === color}
-                onClick={() => {
-                  setColor(c);
-                  setIndex(0);
-                }}
-                className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white transition hover:border-theme-red ${focusRing} ${
-                  c === color ? "border-theme-red bg-theme-red/25" : "border-white/15 bg-black/35"
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="size-6 rounded-full border border-white/40"
-                  style={{ background: CATALOG_COLOR_HEX[c] }}
-                />
-                {c}
-              </button>
-            ))}
+            {product.colors.map((c) => {
+              const out = colorStock(product, c) === 0;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={c === color}
+                  aria-label={out ? `${c}, agotado` : c}
+                  onClick={() => {
+                    setColor(c);
+                    setIndex(0);
+                    // Una talla sin stock en el nuevo color se deselecciona.
+                    if (size && stockOf(product, c, size) === 0) setSize(null);
+                  }}
+                  className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white transition hover:border-theme-red ${focusRing} ${
+                    c === color ? "border-theme-red bg-theme-red/25" : "border-white/15 bg-black/35"
+                  } ${out ? "line-through opacity-60" : ""}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-6 rounded-full border border-white/40"
+                    style={{ background: CATALOG_COLOR_HEX[c] }}
+                  />
+                  {c}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -199,8 +212,8 @@ export default function ProductDetail({
             </span>
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2">
-            {Object.keys(product.stock).map((s) => {
-              const out = (product.stock[s] ?? 0) === 0;
+            {sizes.map((s) => {
+              const out = stockOf(product, color, s) === 0;
               const on = size === s;
               return (
                 <button

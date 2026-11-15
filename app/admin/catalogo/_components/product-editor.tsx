@@ -23,9 +23,10 @@ import {
 import {
   CATALOG_COLOR_HEX,
   CATALOG_COLORS,
+  colorStock,
   emptyStock,
   formatPrice,
-  ONE_SIZE,
+  resizeStock,
   sizesFor,
   stockTotal,
   type Catalog,
@@ -46,17 +47,6 @@ import { normalizeText } from "@/lib/catalog-shared";
 
 const NEW_CATEGORY = "__new";
 
-// Ajusta el stock a las tallas de la categoría nueva: "Única" suma todo; de ahí a varias tallas
-// empieza en 0; si las tallas son las mismas no cambia nada.
-function remapStock(product: CatalogProduct, sizes: string[]): Record<string, number> {
-  const same =
-    Object.keys(product.stock).length === sizes.length &&
-    sizes.every((size) => size in product.stock);
-  if (same) return product.stock;
-  if (sizes.length === 1 && sizes[0] === ONE_SIZE) return { [ONE_SIZE]: stockTotal(product) };
-  return emptyStock(sizes);
-}
-
 function blankProduct(categories: CatalogCategory[]): CatalogProduct {
   const first = categories[0] ?? null;
   return {
@@ -67,7 +57,7 @@ function blankProduct(categories: CatalogCategory[]): CatalogProduct {
     categoryId: first?.id ?? null,
     visible: true,
     colors: ["Negro"],
-    stock: emptyStock(sizesFor(first)),
+    stock: emptyStock(["Negro"], sizesFor(first)),
     images: [],
   };
 }
@@ -111,7 +101,7 @@ export default function ProductEditor({
     setDraft((current) => ({
       ...current,
       categoryId,
-      stock: remapStock(current, sizesFor(next)),
+      stock: resizeStock(current.stock, current.colors, sizesFor(next)),
     }));
   }
 
@@ -123,13 +113,15 @@ export default function ProductEditor({
       setDraft((current) => ({
         ...current,
         colors: rest,
+        stock: resizeStock(current.stock, rest, sizes),
         images: current.images.map((image) =>
           image.color === color ? { ...image, color: rest[0] } : image,
         ),
       }));
       if (moved) show(`${moved} ${moved === 1 ? "foto pasó" : "fotos pasaron"} a ${rest[0]}.`);
     } else {
-      patch({ colors: CATALOG_COLORS.filter((c) => c === color || draft.colors.includes(c)) });
+      const colors = CATALOG_COLORS.filter((c) => c === color || draft.colors.includes(c));
+      setDraft((current) => ({ ...current, colors, stock: resizeStock(current.stock, colors, sizes) }));
     }
   }
 
@@ -157,7 +149,7 @@ export default function ProductEditor({
     setDraft((current) => ({
       ...current,
       categoryId: next.id,
-      stock: remapStock(current, sizesFor(next)),
+      stock: resizeStock(current.stock, current.colors, sizesFor(next)),
     }));
   }
 
@@ -397,38 +389,82 @@ export default function ProductEditor({
           </div>
 
           <div className="flex items-baseline justify-between border-t border-white/10 pt-3">
-            <h2 className="text-[17px] font-bold">Stock por talla</h2>
+            <h2 className="text-[17px] font-bold">Stock por color y talla</h2>
             <span className="text-[13px] text-white/70">{stockTotal(draft)} unidades</span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2">
-            {sizes.map((size) => {
-              const units = draft.stock[size] ?? 0;
-              return (
-                <label
-                  key={size}
-                  className={`flex flex-col gap-0.5 rounded-xl border bg-black/35 px-2.5 py-2 ${
-                    units === 0 ? "border-theme-red/50" : "border-white/15"
-                  }`}
-                >
-                  <span className="text-[11px] font-bold text-white/70">{size}</span>
-                  <input
-                    aria-label={`Stock talla ${size}`}
-                    value={String(units)}
-                    inputMode="numeric"
-                    onChange={(event) => {
-                      const digits = event.target.value.replace(/\D/g, "");
-                      const value = Math.min(digits ? parseInt(digits, 10) : 0, MAX_STOCK);
-                      patch({ stock: { ...draft.stock, [size]: value } });
-                    }}
-                    className={`w-full min-w-0 border-0 bg-transparent p-0 text-xl font-extrabold outline-none ${focusRing} ${
-                      units === 0 ? "text-[#ff5a63]" : "text-white"
-                    }`}
-                  />
-                </label>
-              );
-            })}
+          {/* La tabla se desplaza dentro de su caja; la página no hace scroll horizontal. */}
+          <div className="overflow-x-auto rounded-xl border border-white/15 bg-black/35">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="text-[11px] font-bold text-white/70">
+                  <th scope="col" className="sticky left-0 z-10 bg-theme-navy px-2.5 py-2">
+                    Color
+                  </th>
+                  {sizes.map((size) => (
+                    <th key={size} scope="col" className="px-1.5 py-2 text-center">
+                      {size}
+                    </th>
+                  ))}
+                  <th scope="col" className="px-2.5 py-2 text-right">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {draft.colors.map((color) => (
+                  <tr key={color} className="border-t border-white/10">
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 bg-theme-navy px-2.5 py-1.5 text-[13px] font-semibold"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="size-4 shrink-0 rounded-full border border-white/40"
+                          style={{ background: CATALOG_COLOR_HEX[color] }}
+                        />
+                        {color}
+                      </span>
+                    </th>
+                    {sizes.map((size) => {
+                      const units = draft.stock[color]?.[size] ?? 0;
+                      return (
+                        <td key={size} className="px-1 py-1.5">
+                          <input
+                            aria-label={`Stock ${color}, talla ${size}`}
+                            value={String(units)}
+                            inputMode="numeric"
+                            onChange={(event) => {
+                              const digits = event.target.value.replace(/\D/g, "");
+                              const value = Math.min(digits ? parseInt(digits, 10) : 0, MAX_STOCK);
+                              setDraft((current) => ({
+                                ...current,
+                                stock: {
+                                  ...current.stock,
+                                  [color]: { ...current.stock[color], [size]: value },
+                                },
+                              }));
+                            }}
+                            className={`h-9 w-14 rounded-lg border bg-black/30 px-1 text-center text-base font-extrabold ${focusRing} ${
+                              units === 0
+                                ? "border-theme-red/50 text-[#ff5a63]"
+                                : "border-white/15 text-white"
+                            }`}
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="px-2.5 py-1.5 text-right text-[13px] text-white/70">
+                      {colorStock(draft, color)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <p className="text-xs text-white/65">Las tallas en 0 aparecen tachadas en la tienda.</p>
+          <p className="text-xs text-white/65">
+            Las tallas en 0 de cada color aparecen tachadas en la tienda al elegir ese color.
+          </p>
         </section>
       </div>
 
