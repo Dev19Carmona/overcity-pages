@@ -45,7 +45,7 @@ export default async function ProductPage({ params }: PageProps<"/catalogo/[id]"
   const category = catalog.categories.find((item) => item.id === product.categoryId);
 
   return (
-    <StoreShell content={content} catalogTitle={catalog.title} active="catalog">
+    <StoreShell content={content} catalog={catalog} active="catalog">
       <main className={`${STORE_WIDTH} flex flex-1 flex-col gap-[18px] pb-14 pt-[clamp(16px,3vw,32px)]`}>
         <div className="flex items-center gap-2 text-[13px] text-white/75">
           <Link

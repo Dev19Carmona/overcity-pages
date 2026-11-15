@@ -12,6 +12,7 @@ import {
 } from "@/lib/catalog";
 import {
   emptyStock,
+  normalizeWhatsapp,
   ONE_SIZE,
   sizesFor,
   stockTotal,
@@ -78,8 +79,23 @@ async function apply(mutate: Mutation): Promise<CatalogActionResult> {
 export async function saveCatalogSettings(input: {
   title: string;
   currency: CatalogCurrency;
+  whatsapp: string;
+  freeShippingFrom: number | null;
 }): Promise<CatalogActionResult> {
-  return apply((current) => ({ ...current, title: input.title, currency: input.currency }));
+  const whatsapp = typeof input.whatsapp === "string" ? normalizeWhatsapp(input.whatsapp) : null;
+  if (whatsapp === null) {
+    return {
+      ok: false,
+      error: "El número de WhatsApp debe tener entre 8 y 15 dígitos, con código de país.",
+    };
+  }
+  return apply((current) => ({
+    ...current,
+    title: input.title,
+    currency: input.currency,
+    whatsapp,
+    freeShippingFrom: input.freeShippingFrom,
+  }));
 }
 
 // Reemplaza la lista de categorías (crear, renombrar, reordenar, talla única, quitar).

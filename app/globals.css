@@ -211,3 +211,20 @@ dialog::backdrop {
   background-color: rgba(10, 28, 41, 0.85);
   backdrop-filter: blur(4px);
 }
+
+/* ---------- Cajón de la bolsa (SPEC 08) ---------- */
+
+@keyframes cart-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+.cart-drawer-panel {
+  animation: cart-drawer-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-drawer-panel {
+    animation: none;
+  }
+}

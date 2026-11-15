@@ -43,6 +43,8 @@ export type CatalogProduct = {
 export type Catalog = {
   title: string; // hasta 60 caracteres, por defecto "Catálogo"
   currency: CatalogCurrency; // por defecto "COP"
+  whatsapp: string; // solo dígitos con código de país (8 a 15); "" = sin configurar (SPEC 08)
+  freeShippingFrom: number | null; // entero 1..MAX_PRICE en la moneda del catálogo; null = sin barra
   categories: CatalogCategory[]; // el orden del arreglo es el orden en pantalla
   products: CatalogProduct[]; // el orden del arreglo es el orden en pantalla ("Destacados")
 };
@@ -75,4 +77,11 @@ export function formatPrice(value: number, currency: CatalogCurrency): string {
     currency,
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+// Quita todo lo que no sea dígito y comprueba 8 a 15 dígitos (E.164). "" es válido (sin número).
+export function normalizeWhatsapp(value: string): string | null {
+  const digits = value.replace(/\D/g, "");
+  if (digits === "") return "";
+  return /^\d{8,15}$/.test(digits) ? digits : null;
 }
