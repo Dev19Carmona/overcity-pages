@@ -1,7 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import CartButton from "@/app/_components/cart-button";
+import CartDrawer from "@/app/_components/cart-drawer";
+import CartProvider from "@/app/_components/cart-provider";
 import NightScene from "@/app/_components/night-scene";
+import type { CartCatalog } from "@/lib/cart";
+import type { Catalog } from "@/lib/catalog-shared";
 import type { SiteContent } from "@/lib/content";
 
 const DEFAULT_LOGO = "/overcity/logo-overcity.png";
@@ -19,21 +24,39 @@ function navClass(active: boolean) {
   }`;
 }
 
-// Fondo y efectos de SiteContent más el encabezado fijo de la tienda (logo, marca y navegación).
-// Sin bolsa ni candado de admin: eso queda para otros specs.
+// Resumen del catálogo público que viaja al navegador para la bolsa (sin descripciones).
+function cartCatalog(catalog: Catalog, brandName: string): CartCatalog {
+  return {
+    products: catalog.products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      colors: product.colors,
+      images: product.images,
+      stock: product.stock,
+    })),
+    currency: catalog.currency,
+    whatsapp: catalog.whatsapp,
+    freeShippingFrom: catalog.freeShippingFrom,
+    brandName,
+  };
+}
+
+// Fondo y efectos de SiteContent más el encabezado fijo de la tienda (logo, marca, navegación y
+// bolsa) y el cajón de la bolsa (SPEC 08). Sin candado de admin.
 export default function StoreShell({
   content,
-  catalogTitle,
+  catalog,
   active,
   children,
 }: {
   content: SiteContent;
-  catalogTitle: string;
+  catalog: Catalog;
   active: "catalog" | null;
   children: ReactNode;
 }) {
   return (
-    <>
+    <CartProvider catalog={cartCatalog(catalog, content.brandName)}>
       <NightScene background={content.background} effectsEnabled={content.effectsEnabled} />
       <div className="relative z-10 flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-border-soft bg-theme-navy/75 backdrop-blur-[14px]">
@@ -65,13 +88,15 @@ export default function StoreShell({
                 aria-current={active === "catalog" ? "page" : undefined}
                 className={navClass(active === "catalog")}
               >
-                <span className="block max-w-[120px] truncate">{catalogTitle}</span>
+                <span className="block max-w-[120px] truncate">{catalog.title}</span>
               </Link>
             </nav>
+            <CartButton />
           </div>
         </header>
         {children}
       </div>
-    </>
+      <CartDrawer />
+    </CartProvider>
   );
 }

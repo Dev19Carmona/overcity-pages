@@ -1,0 +1,41 @@
+"use client";
+
+import { useCart } from "@/app/_components/cart-provider";
+
+// Botón de bolsa del encabezado de la tienda: icono y contador de unidades (oculto en 0).
+export default function CartButton() {
+  const { count, openCart } = useCart();
+  return (
+    <button
+      type="button"
+      onClick={openCart}
+      aria-label={
+        count > 0
+          ? `Abrir bolsa, ${count} ${count === 1 ? "unidad" : "unidades"}`
+          : "Abrir bolsa"
+      }
+      className="ml-auto flex h-[38px] shrink-0 items-center gap-2 rounded-full border border-theme-red bg-theme-red/20 px-3.5 text-[13px] font-bold text-white transition hover:shadow-[0_0_16px_rgba(216,26,33,0.45)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+        <path d="M3 6h18" />
+        <path d="M16 10a4 4 0 0 1-8 0" />
+      </svg>
+      {count > 0 && (
+        <span className="min-w-[1ch] text-sm" aria-hidden="true">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}

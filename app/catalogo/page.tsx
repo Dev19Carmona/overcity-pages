@@ -13,7 +13,7 @@ export default async function CatalogPage() {
   const [catalog, content] = await Promise.all([getPublicCatalog(), getPublicContent()]);
 
   return (
-    <StoreShell content={content} catalogTitle={catalog.title} active="catalog">
+    <StoreShell content={content} catalog={catalog} active="catalog">
       <main
         className={`${STORE_WIDTH} flex flex-1 flex-col gap-4 pb-14 pt-[clamp(20px,3vw,36px)]`}
       >

@@ -22,3 +22,6 @@ export const MAX_CATEGORY_NAME = 40;
 export const MAX_STOCK = 9999; // unidades por talla (SPEC 07)
 export const MAX_PRICE = 999_999_999;
 export const PRODUCT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+// Bolsa de compra (SPEC 08): acota también el largo del enlace de WhatsApp.
+export const MAX_CART_LINES = 30;

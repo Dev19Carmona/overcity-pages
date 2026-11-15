@@ -45,6 +45,8 @@ const LEGACY_CATALOG_KEY = "overcity:catalog:v1";
 export const DEFAULT_CATALOG: Catalog = {
   title: "Catálogo",
   currency: "COP",
+  whatsapp: "",
+  freeShippingFrom: null,
   categories: [],
   products: [],
 };
@@ -82,6 +84,21 @@ export function validateCatalog(input: unknown): CatalogValidation {
     const currency = input.currency;
     if (!CATALOG_CURRENCIES.includes(currency as CatalogCurrency)) {
       throw new Error("La moneda no está en la lista permitida.");
+    }
+
+    const whatsapp = input.whatsapp ?? "";
+    if (typeof whatsapp !== "string" || !/^(\d{8,15})?$/.test(whatsapp)) {
+      throw new Error("El número de WhatsApp debe tener entre 8 y 15 dígitos, con código de país.");
+    }
+    const freeShippingFrom = input.freeShippingFrom ?? null;
+    if (
+      freeShippingFrom !== null &&
+      (typeof freeShippingFrom !== "number" ||
+        !Number.isInteger(freeShippingFrom) ||
+        freeShippingFrom < 1 ||
+        freeShippingFrom > MAX_PRICE)
+    ) {
+      throw new Error(`El envío gratis debe ser un entero entre 1 y ${MAX_PRICE}, o quedar vacío.`);
     }
 
     const { categories, products } = input;
@@ -214,6 +231,8 @@ export function validateCatalog(input: unknown): CatalogValidation {
       catalog: {
         title: text(input.title, "El título del catálogo", MAX_TITLE),
         currency: currency as CatalogCurrency,
+        whatsapp,
+        freeShippingFrom,
         categories: validCategories,
         products: validProducts,
       },
