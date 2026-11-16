@@ -34,14 +34,37 @@ export type CartProduct = {
   designs: CartDesign[];
 };
 
-export type CartCatalog = {
-  products: CartProduct[];
+// Datos del catálogo que la bolsa necesita siempre (SPEC 12: sin los productos, que se piden aparte).
+export type CartShell = {
   colors: { name: string; hex: string }[]; // SPEC 11: para pintar las miniaturas
   currency: CatalogCurrency;
   whatsapp: string;
   freeShippingFrom: number | null;
   brandName: string;
 };
+
+export type CartCatalog = CartShell & { products: CartProduct[] };
+
+// Resumen de un producto completo para la bolsa (sin descripción).
+export function toCartProduct(product: {
+  id: string;
+  name: string;
+  price: number | null;
+  designs: CartDesign[];
+}): CartProduct {
+  return {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    designs: product.designs.map((design) => ({
+      id: design.id,
+      name: design.name,
+      image: design.image,
+      colors: design.colors,
+      stock: design.stock,
+    })),
+  };
+}
 
 export function lineKey(line: Pick<CartLine, "productId" | "designId" | "color" | "size">): string {
   return `${line.productId}|${line.designId}|${line.color}|${line.size}`;

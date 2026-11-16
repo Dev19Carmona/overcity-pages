@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import ProductEditor from "@/app/admin/catalogo/_components/product-editor";
-import { loadAdminCatalog } from "@/app/admin/_lib";
+import { loadAdminEditor } from "@/app/admin/_lib";
 import { MAX_PRODUCTS } from "@/lib/content-limits";
 
 async function ProductData({
@@ -10,23 +10,26 @@ async function ProductData({
 }: {
   params: PageProps<"/admin/catalogo/producto/[id]">["params"];
 }) {
-  const [{ id }, catalog] = await Promise.all([params, loadAdminCatalog()]);
-  if (!catalog) return null;
+  const { id } = await params;
+  const data = await loadAdminEditor(id);
+  if (!data) return null;
+  const { meta, entry, isNew } = data;
 
-  if (id === "nuevo") {
-    if (catalog.products.length >= MAX_PRODUCTS) {
+  if (isNew) {
+    if (meta.productCount >= MAX_PRODUCTS) {
       return (
         <p className="text-sm">
           Ya tienes {MAX_PRODUCTS} productos, el máximo permitido. Elimina uno para crear otro.
         </p>
       );
     }
-    return <ProductEditor key="nuevo" catalog={catalog} product={null} />;
+    return <ProductEditor key="nuevo" meta={meta} product={null} version={null} />;
   }
 
-  const product = catalog.products.find((item) => item.id === id);
-  if (!product) notFound();
-  return <ProductEditor key={product.id} catalog={catalog} product={product} />;
+  if (!entry) notFound();
+  return (
+    <ProductEditor key={entry.product.id} meta={meta} product={entry.product} version={entry.version} />
+  );
 }
 
 export default function AdminProductPage({

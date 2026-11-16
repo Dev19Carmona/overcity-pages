@@ -1,6 +1,5 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -30,6 +29,51 @@ type Uploading = { id: string; name: string; preview: string; pct: number };
 
 type Updater = (previous: CatalogDesign[]) => CatalogDesign[];
 
+const MAX_IMAGE_MB = MAX_PRODUCT_IMAGE_BYTES / 1048576;
+
+// Sube una foto a Supabase Storage con la URL firmada que entrega /api/catalog-media (SPEC 12) y
+// devuelve su URL pública. El bucket impone el tamaño y los tipos; aquí se muestra el motivo.
+async function uploadPhoto(file: File, onProgress: (percent: number) => void): Promise<string> {
+  const response = await fetch("/api/catalog-media", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contentType: file.type, size: file.size }),
+  });
+  const target = (await response.json().catch(() => null)) as {
+    signedUrl?: string;
+    publicUrl?: string;
+    error?: string;
+  } | null;
+  if (!response.ok || !target?.signedUrl || !target.publicUrl) {
+    throw new Error(target?.error ?? "No se pudo preparar la subida.");
+  }
+  const { signedUrl, publicUrl } = target;
+  await new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", signedUrl);
+    request.setRequestHeader("x-upsert", "false");
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) return resolve();
+      if (request.status === 413 || /exceeded the maximum/i.test(request.responseText)) {
+        return reject(new Error(`pesa más de ${MAX_IMAGE_MB} MB.`));
+      }
+      if (request.status === 415 || /mime type/i.test(request.responseText)) {
+        return reject(new Error("solo PNG, JPG o WebP."));
+      }
+      reject(new Error("No se pudo subir la imagen."));
+    };
+    request.onerror = () => reject(new Error("No se pudo subir la imagen."));
+    const body = new FormData();
+    body.append("cacheControl", "3600");
+    body.append("", file);
+    request.send(body);
+  });
+  return publicUrl;
+}
+
 // Primer "Diseño N" que no esté en uso (sin distinguir mayúsculas ni tildes).
 function freeName(used: string[]): string {
   const taken = new Set(used.map(normalizeText));
@@ -38,9 +82,9 @@ function freeName(used: string[]): string {
   return `Diseño ${n}`;
 }
 
-// Diseños de un producto (SPEC 10): hasta 8, el primero es la portada. Cada uno tiene una foto,
-// un nombre, sus colores y su stock. La subida va directo del navegador a Vercel Blob; solo cambia
-// el borrador hasta guardar.
+// Diseños de un producto (SPEC 10): hasta MAX_DESIGNS, el primero es la portada. Cada uno tiene una foto,
+// un nombre, sus colores y su stock. La subida va directo del navegador a Supabase Storage con una URL
+// firmada (SPEC 12); solo cambia el borrador hasta guardar.
 export default function ProductDesigns({
   designs,
   palette,
@@ -88,7 +132,7 @@ export default function ProductDesigns({
       if (!PRODUCT_IMAGE_TYPES.includes(file.type)) {
         problems.push(`${file.name}: solo PNG, JPG o WebP.`);
       } else if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
-        problems.push(`${file.name}: pesa ${(file.size / 1048576).toFixed(1)} MB (máximo 2 MB).`);
+        problems.push(`${file.name}: pesa ${(file.size / 1048576).toFixed(1)} MB (máximo ${MAX_IMAGE_MB} MB).`);
       } else if (room <= 0) {
         problems.push(`${file.name}: ya llegaste a ${MAX_DESIGNS} diseños.`);
       } else {
@@ -111,15 +155,9 @@ export default function ProductDesigns({
       accepted.map(async (file, index) => {
         const item = items[index];
         try {
-          const blob = await upload(`catalog/${file.name}`, file, {
-            access: "public",
-            handleUploadUrl: "/api/media",
-            contentType: file.type,
-            onUploadProgress: ({ percentage }) =>
-              setUploading((current) =>
-                current.map((u) => (u.id === item.id ? { ...u, pct: Math.round(percentage) } : u)),
-              ),
-          });
+          const url = await uploadPhoto(file, (pct) =>
+            setUploading((current) => current.map((u) => (u.id === item.id ? { ...u, pct } : u))),
+          );
           onChange((previous) =>
             previous.length >= MAX_DESIGNS
               ? previous
@@ -128,7 +166,7 @@ export default function ProductDesigns({
                   {
                     id: crypto.randomUUID(),
                     name: freeName(previous.map((d) => d.name)),
-                    image: blob.url,
+                    image: url,
                     colors: [defaultColor],
                     stock: resizeStock({}, [defaultColor], sizesRef.current),
                   },
@@ -263,7 +301,7 @@ export default function ProductDesigns({
         >
           <strong className="text-base">Arrastra las fotos de los diseños aquí</strong>
           <span className="text-[13px] text-white/70">
-            o toca para elegirlas · PNG, JPG o WebP · máx. 2 MB c/u
+            o toca para elegirlas · PNG, JPG o WebP · máx. {MAX_IMAGE_MB} MB c/u
           </span>
         </button>
       ) : (

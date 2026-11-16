@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   moveProduct,
   setProductVisible,
-  type CatalogActionResult,
+  type ListResult,
 } from "@/app/admin/catalogo/actions";
 import {
   chipClass,
@@ -19,14 +19,7 @@ import {
   Toast,
   useToast,
 } from "@/app/admin/_components/ui";
-import {
-  colorHex,
-  formatPrice,
-  normalizeText,
-  stockTotal,
-  type Catalog,
-  coverImage,
-} from "@/lib/catalog-shared";
+import { colorHex, formatPrice, normalizeText, type CatalogList } from "@/lib/catalog-shared";
 import { MAX_PRODUCTS } from "@/lib/content-limits";
 
 const COLUMNS =
@@ -36,7 +29,7 @@ export default function ProductsAdmin({
   initial,
   initialCategory,
 }: {
-  initial: Catalog;
+  initial: CatalogList;
   initialCategory: string | null;
 }) {
   const [catalog, setCatalog] = useState(initial);
@@ -58,11 +51,11 @@ export default function ProductsAdmin({
   const visibleCount = catalog.products.filter((product) => product.visible).length;
   const full = catalog.products.length >= MAX_PRODUCTS;
 
-  function run(action: () => Promise<CatalogActionResult>, okMessage?: string) {
+  function run(action: () => Promise<ListResult>, okMessage?: string) {
     startTransition(async () => {
       const result = await action();
       if (result.ok) {
-        setCatalog(result.catalog);
+        setCatalog(result.list);
         if (okMessage) show(okMessage);
       } else {
         show(result.error);
@@ -144,7 +137,7 @@ export default function ProductsAdmin({
 
         <ul>
           {filtered.map((product) => {
-            const total = stockTotal(product);
+            const total = product.stockTotal;
             const index = catalog.products.findIndex((p) => p.id === product.id);
             const href = `/admin/catalogo/producto/${product.id}`;
             const priceLabel =
@@ -163,7 +156,7 @@ export default function ProductsAdmin({
                   aria-label={`Editar ${product.name}`}
                   className={`block h-[65px] w-[52px] overflow-hidden rounded-[10px] border border-white/15 ${product.visible ? "" : "opacity-50"} ${focusRing}`}
                 >
-                  <Thumb image={coverImage(product)} alt="" className="size-full" size={52} />
+                  <Thumb image={product.cover} alt="" className="size-full" size={52} />
                 </Link>
                 <Link
                   href={href}
@@ -172,7 +165,7 @@ export default function ProductsAdmin({
                   <span className="truncate text-sm font-semibold">{product.name}</span>
                   <span className="truncate text-xs text-white/65">
                     <span className="min-[900px]:hidden">
-                      {priceLabel} · {stockLabel} · {product.designs.length} {product.designs.length === 1 ? "diseño" : "diseños"}
+                      {priceLabel} · {stockLabel} · {product.designCount} {product.designCount === 1 ? "diseño" : "diseños"}
                     </span>
                     <span className="hidden min-[900px]:inline">{categoryLabel}</span>
                   </span>
@@ -186,21 +179,23 @@ export default function ProductsAdmin({
                   {stockLabel}
                 </span>
                 <span className="hidden items-center gap-[3px] min-[900px]:flex">
-                  {product.designs.slice(0, 4).map((design) => (
+                  {[product.cover, product.hoverImage].flatMap((image) =>
+                    image ? [image] : [],
+                  ).map((image) => (
                     <span
-                      key={design.id}
+                      key={image}
                       className="h-[25px] w-5 overflow-hidden rounded border border-white/15"
                     >
                       <Thumb
-                        image={design.image}
-                        hex={colorHex(catalog.colors, design.colors[0])}
+                        image={image}
+                        hex={colorHex(catalog.colors, product.coverColor ?? "")}
                         alt=""
                         className="size-full"
                         size={20}
                       />
                     </span>
                   ))}
-                  <span className="ml-1 text-xs text-white/65">{product.designs.length}</span>
+                  <span className="ml-1 text-xs text-white/65">{product.designCount}</span>
                 </span>
                 <Switch
                   checked={product.visible}

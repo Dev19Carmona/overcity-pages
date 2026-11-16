@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveColors, type CatalogActionResult } from "@/app/admin/catalogo/actions";
+import { saveColors, type ColorsResult } from "@/app/admin/catalogo/actions";
 import {
   ConfirmDialog,
   focusRing,
@@ -15,17 +15,20 @@ import {
 } from "@/app/admin/_components/ui";
 import {
   COLOR_HEX_PATTERN,
-  colorUsage,
   normalizeText,
-  type Catalog,
+  type ColorUsageMap,
   type CatalogColorDef,
 } from "@/lib/catalog-shared";
 import { MAX_COLORS, MAX_COLOR_NAME } from "@/lib/content-limits";
 
 const DEFAULT_NEW_HEX = "#4B5320";
 
-export default function ColorsAdmin({ initial }: { initial: Catalog }) {
-  const [catalog, setCatalog] = useState(initial);
+export default function ColorsAdmin({
+  initial,
+}: {
+  initial: { colors: CatalogColorDef[]; usage: ColorUsageMap };
+}) {
+  const [state, setState] = useState(initial);
   const [newName, setNewName] = useState("");
   const [newHex, setNewHex] = useState(DEFAULT_NEW_HEX);
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -33,14 +36,14 @@ export default function ColorsAdmin({ initial }: { initial: Catalog }) {
   const [busy, startTransition] = useTransition();
   const { toast, show, hide } = useToast();
 
-  const colors = catalog.colors;
+  const { colors, usage: usageByColor } = state;
   const full = colors.length >= MAX_COLORS;
 
   function save(next: CatalogColorDef[], okMessage: string, onOk?: () => void) {
     startTransition(async () => {
-      const result: CatalogActionResult = await saveColors(next);
+      const result: ColorsResult = await saveColors(next);
       if (result.ok) {
-        setCatalog(result.catalog);
+        setState({ colors: result.colors, usage: result.usage });
         onOk?.();
         show(okMessage);
       } else {
@@ -162,7 +165,7 @@ export default function ColorsAdmin({ initial }: { initial: Catalog }) {
         )}
         <ul>
           {colors.map((color, index) => {
-            const usage = colorUsage(catalog, color.name);
+            const usage = usageByColor[color.name] ?? { designs: 0, products: 0 };
             const inUse = usage.designs > 0;
             const hexValue = edits[color.name] ?? color.hex;
             return (

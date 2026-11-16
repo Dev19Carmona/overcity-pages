@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import ProductsAdmin from "@/app/admin/catalogo/_components/products-admin";
-import { loadAdminCatalog } from "@/app/admin/_lib";
+import { loadAdminList } from "@/app/admin/_lib";
 
 async function ProductsData({ searchParams }: { searchParams: PageProps<"/admin/catalogo">["searchParams"] }) {
-  const catalog = await loadAdminCatalog();
+  const catalog = await loadAdminList();
   if (!catalog) return null;
   const { categoria } = await searchParams;
   const initialCategory =
