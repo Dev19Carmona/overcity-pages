@@ -2,17 +2,32 @@
 export const CATALOG_CURRENCIES = ["COP", "USD", "EUR", "MXN", "ARS", "PEN", "CLP", "BRL"] as const;
 export type CatalogCurrency = (typeof CATALOG_CURRENCIES)[number];
 
-// Paleta fija de colores de producto (la del diseño de la tienda).
-export const CATALOG_COLORS = ["Negro", "Blanco", "Rojo", "Navy", "Gris", "Arena"] as const;
-export type CatalogColor = (typeof CATALOG_COLORS)[number];
-export const CATALOG_COLOR_HEX: Record<CatalogColor, string> = {
-  Negro: "#141414",
-  Blanco: "#e6e6e6",
-  Rojo: "#d81a21",
-  Navy: "#1b4263",
-  Gris: "#6b7178",
-  Arena: "#b8a684",
+// Colores del catálogo (SPEC 11): el nombre es el identificador estable (lo usan diseños, stock y bolsa).
+export type CatalogColor = string;
+
+export type CatalogColorDef = {
+  name: string; // 1 a MAX_COLOR_NAME caracteres, único sin distinguir mayúsculas ni tildes
+  hex: string; // "#RRGGBB"
+  hidden: boolean; // true: no se ofrece al elegir colores de un diseño
 };
+
+export const COLOR_HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
+const FALLBACK_HEX = "#808080";
+
+// Semilla: la antigua paleta fija.
+export const DEFAULT_COLORS: CatalogColorDef[] = [
+  { name: "Negro", hex: "#141414", hidden: false },
+  { name: "Blanco", hex: "#e6e6e6", hidden: false },
+  { name: "Rojo", hex: "#d81a21", hidden: false },
+  { name: "Navy", hex: "#1b4263", hidden: false },
+  { name: "Gris", hex: "#6b7178", hidden: false },
+  { name: "Arena", hex: "#b8a684", hidden: false },
+];
+
+// Hex de un color por nombre; gris neutro si no existe (solo para no romper el render).
+export function colorHex(colors: readonly { name: string; hex: string }[], name: string): string {
+  return colors.find((color) => color.name === name)?.hex ?? FALLBACK_HEX;
+}
 
 export const CATALOG_SIZES = ["XS", "S", "M", "L", "XL"] as const;
 export const ONE_SIZE = "Única";
@@ -52,6 +67,7 @@ export type Catalog = {
   whatsapp: string; // solo dígitos con código de país (8 a 15); "" = sin configurar (SPEC 08)
   freeShippingFrom: number | null; // entero 1..MAX_PRICE en la moneda del catálogo; null = sin barra
   categories: CatalogCategory[]; // el orden del arreglo es el orden en pantalla
+  colors: CatalogColorDef[]; // 0 a MAX_COLORS; el orden es el orden de presentación (SPEC 11)
   products: CatalogProduct[]; // el orden del arreglo es el orden en pantalla ("Destacados")
 };
 
@@ -97,9 +113,30 @@ export function stockTotal(product: { designs: { stock: DesignStock }[] }): numb
   return product.designs.reduce((total, design) => total + designStock(design), 0);
 }
 
-// Unión de los colores de los diseños, en el orden de la paleta.
-export function productColors(product: { designs: { colors: CatalogColor[] }[] }): CatalogColor[] {
-  return CATALOG_COLORS.filter((color) => product.designs.some((d) => d.colors.includes(color)));
+// Unión de los colores de los diseños, en el orden de la lista del catálogo.
+export function productColors(
+  product: { designs: { colors: CatalogColor[] }[] },
+  colors: readonly { name: string }[],
+): CatalogColor[] {
+  const used = new Set(product.designs.flatMap((d) => d.colors));
+  const ordered = colors.map((c) => c.name).filter((name) => used.has(name));
+  const extra = [...used].filter((name) => !ordered.includes(name));
+  return [...ordered, ...extra];
+}
+
+// Uso de un color: en cuántos diseños y en cuántos productos está.
+export function colorUsage(
+  catalog: { products: { designs: { colors: CatalogColor[] }[] }[] },
+  name: string,
+): { designs: number; products: number } {
+  let designs = 0;
+  let products = 0;
+  for (const product of catalog.products) {
+    const count = product.designs.filter((d) => d.colors.includes(name)).length;
+    designs += count;
+    if (count > 0) products += 1;
+  }
+  return { designs, products };
 }
 
 // Foto del primer diseño.

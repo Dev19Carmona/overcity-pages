@@ -3,6 +3,9 @@ import { cacheLife, cacheTag } from "next/cache";
 import {
   MAX_CATEGORIES,
   MAX_CATEGORY_NAME,
+  MAX_COLORS,
+  MAX_COLOR_NAME,
+  MAX_DESIGN_COLORS,
   MAX_DESIGNS,
   MAX_DESIGN_NAME,
   MAX_PRICE,
@@ -15,14 +18,16 @@ import {
 } from "@/lib/content-limits";
 import { isBlobUrl } from "@/lib/content";
 import {
-  CATALOG_COLORS,
   CATALOG_CURRENCIES,
+  COLOR_HEX_PATTERN,
+  DEFAULT_COLORS,
   emptyStock,
   normalizeText,
   sizesFor,
   type Catalog,
   type CatalogCategory,
   type CatalogColor,
+  type CatalogColorDef,
   type CatalogCurrency,
   type CatalogDesign,
   type CatalogProduct,
@@ -35,6 +40,7 @@ export type {
   Catalog,
   CatalogCategory,
   CatalogColor,
+  CatalogColorDef,
   CatalogCurrency,
   CatalogDesign,
   CatalogProduct,
@@ -50,6 +56,7 @@ export const DEFAULT_CATALOG: Catalog = {
   whatsapp: "",
   freeShippingFrom: null,
   categories: [],
+  colors: DEFAULT_COLORS,
   products: [],
 };
 
@@ -112,6 +119,27 @@ export function validateCatalog(input: unknown): CatalogValidation {
     if (products.length > MAX_PRODUCTS) {
       throw new Error(`No puede haber más de ${MAX_PRODUCTS} productos.`);
     }
+
+    // SPEC 11: sin `colors` se usa la semilla (catálogos guardados antes de la SPEC 11 y v1).
+    const rawColors = input.colors === undefined ? DEFAULT_COLORS : input.colors;
+    if (!Array.isArray(rawColors)) throw new Error("Los colores deben ser una lista.");
+    if (rawColors.length > MAX_COLORS) throw new Error(`No puede haber más de ${MAX_COLORS} colores.`);
+    const colorNames = new Set<string>();
+    const validColorDefs = rawColors.map((item, index): CatalogColorDef => {
+      if (!isRecord(item)) throw new Error(`Color ${index + 1} inválido.`);
+      const name = text(item.name, `El nombre del color ${index + 1}`, MAX_COLOR_NAME);
+      const key = normalizeText(name);
+      if (colorNames.has(key)) throw new Error(`Ya existe el color "${name}".`);
+      colorNames.add(key);
+      if (typeof item.hex !== "string" || !COLOR_HEX_PATTERN.test(item.hex)) {
+        throw new Error(`El color "${name}" necesita un hex con formato #RRGGBB.`);
+      }
+      if (typeof item.hidden !== "boolean") {
+        throw new Error(`El estado oculto del color "${name}" es inválido.`);
+      }
+      return { name, hex: item.hex, hidden: item.hidden };
+    });
+    const colorList = new Set(validColorDefs.map((color) => color.name));
 
     const categoryIds = new Set<string>();
     const categoryNames = new Set<string>();
@@ -181,12 +209,12 @@ export function validateCatalog(input: unknown): CatalogValidation {
         if (!Array.isArray(colors) || colors.length < 1) {
           throw new Error(`El ${dLabel} necesita al menos un color.`);
         }
-        if (colors.length > CATALOG_COLORS.length) {
+        if (colors.length > MAX_DESIGN_COLORS) {
           throw new Error(`El ${dLabel} tiene demasiados colores.`);
         }
         const validColors = colors.map((color): CatalogColor => {
-          if (!CATALOG_COLORS.includes(color as CatalogColor)) {
-            throw new Error(`El color "${String(color)}" del ${dLabel} no está en la paleta.`);
+          if (typeof color !== "string" || !colorList.has(color)) {
+            throw new Error(`El color "${String(color)}" del ${dLabel} no existe en la lista de colores.`);
           }
           return color as CatalogColor;
         });
@@ -257,6 +285,7 @@ export function validateCatalog(input: unknown): CatalogValidation {
         whatsapp,
         freeShippingFrom,
         categories: validCategories,
+        colors: validColorDefs,
         products: validProducts,
       },
     };

@@ -11,14 +11,15 @@ import {
   softButton,
 } from "@/app/admin/_components/ui";
 import {
-  CATALOG_COLOR_HEX,
-  CATALOG_COLORS,
+  colorHex,
   normalizeText,
   resizeStock,
   type CatalogColor,
+  type CatalogColorDef,
   type CatalogDesign,
 } from "@/lib/catalog-shared";
 import {
+  MAX_DESIGN_COLORS,
   MAX_DESIGN_NAME,
   MAX_DESIGNS,
   MAX_PRODUCT_IMAGE_BYTES,
@@ -42,12 +43,14 @@ function freeName(used: string[]): string {
 // el borrador hasta guardar.
 export default function ProductDesigns({
   designs,
+  palette,
   sizes,
   onChange,
   onBusyChange,
   notify,
 }: {
   designs: CatalogDesign[];
+  palette: CatalogColorDef[]; // colores del catálogo, en orden (SPEC 11)
   sizes: string[];
   onChange: (update: Updater) => void;
   onBusyChange: (busy: boolean) => void;
@@ -69,8 +72,15 @@ export default function ProductDesigns({
     onBusyChange(uploading.length > 0);
   }, [uploading.length, onBusyChange]);
 
+  // Color inicial de un diseño nuevo: el primero visible de la lista.
+  const defaultColor = palette.find((c) => !c.hidden)?.name ?? null;
+
   async function handleFiles(files: File[]) {
     if (files.length === 0) return;
+    if (defaultColor === null) {
+      setErrors(["No hay colores visibles. Crea o muestra uno en Catálogo → Colores."]);
+      return;
+    }
     const problems: string[] = [];
     let room = MAX_DESIGNS - total;
     const accepted: File[] = [];
@@ -119,8 +129,8 @@ export default function ProductDesigns({
                     id: crypto.randomUUID(),
                     name: freeName(previous.map((d) => d.name)),
                     image: blob.url,
-                    colors: ["Negro"],
-                    stock: resizeStock({}, ["Negro"], sizesRef.current),
+                    colors: [defaultColor],
+                    stock: resizeStock({}, [defaultColor], sizesRef.current),
                   },
                 ],
           );
@@ -146,7 +156,12 @@ export default function ProductDesigns({
       const colors = design.colors.filter((c) => c !== color);
       patch(design.id, { colors, stock: resizeStock(design.stock, colors, sizes) });
     } else {
-      const colors = CATALOG_COLORS.filter((c) => c === color || design.colors.includes(c));
+      if (design.colors.length >= MAX_DESIGN_COLORS) {
+        return notify(`Cada diseño admite hasta ${MAX_DESIGN_COLORS} colores.`);
+      }
+      const colors = palette
+        .map((c) => c.name)
+        .filter((name) => name === color || design.colors.includes(name));
       patch(design.id, { colors, stock: resizeStock(design.stock, colors, sizes) });
     }
   }
@@ -266,7 +281,7 @@ export default function ProductDesigns({
                 <div
                   className="relative aspect-[4/5] overflow-hidden"
                   style={{
-                    background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[design.colors[0]]}, #0a1c29)`,
+                    background: `linear-gradient(160deg, ${colorHex(palette, design.colors[0])}, #0a1c29)`,
                   }}
                 >
                   <Image
@@ -311,23 +326,25 @@ export default function ProductDesigns({
                     aria-label={`Colores del diseño ${index + 1}`}
                     className="flex flex-wrap gap-1.5"
                   >
-                    {CATALOG_COLORS.map((color) => {
-                      const on = design.colors.includes(color);
-                      return (
-                        <button
-                          key={color}
-                          type="button"
-                          aria-pressed={on}
-                          aria-label={color}
-                          title={color}
-                          onClick={() => toggleColor(design, color)}
-                          className={`size-7 rounded-full border-2 ${focusRing} ${
-                            on ? "border-theme-red" : "border-white/20 opacity-50"
-                          }`}
-                          style={{ background: CATALOG_COLOR_HEX[color] }}
-                        />
-                      );
-                    })}
+                    {palette
+                      .filter((c) => !c.hidden || design.colors.includes(c.name))
+                      .map(({ name: color }) => {
+                        const on = design.colors.includes(color);
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={color}
+                            title={color}
+                            onClick={() => toggleColor(design, color)}
+                            className={`size-7 rounded-full border-2 ${focusRing} ${
+                              on ? "border-theme-red" : "border-white/20 opacity-50"
+                            }`}
+                            style={{ background: colorHex(palette, color) }}
+                          />
+                        );
+                      })}
                   </div>
                 </div>
                 <div className="mt-auto flex h-9 items-center border-t border-white/10">

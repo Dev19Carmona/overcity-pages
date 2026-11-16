@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import {
-  CATALOG_COLOR_HEX,
+  colorHex,
   formatPrice,
   normalizeText,
   productColors,
   stockTotal,
   type Catalog,
+  type CatalogColorDef,
   type CatalogCurrency,
   type CatalogProduct,
 } from "@/lib/catalog-shared";
@@ -35,13 +36,15 @@ function chip(active: boolean) {
 function ProductCard({
   product,
   currency,
+  palette,
 }: {
   product: CatalogProduct;
   currency: CatalogCurrency;
+  palette: CatalogColorDef[];
 }) {
   const cover = product.designs[0];
   const second = product.designs[1];
-  const colors = productColors(product);
+  const colors = productColors(product, palette);
   const soldOut = stockTotal(product) === 0;
   return (
     <Link
@@ -51,7 +54,7 @@ function ProductCard({
       <div
         className="relative aspect-[4/5] w-full overflow-hidden"
         style={{
-          background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[cover.colors[0]]} 0%, #0a1c29 100%)`,
+          background: `linear-gradient(160deg, ${colorHex(palette, cover.colors[0])} 0%, #0a1c29 100%)`,
         }}
       >
         <Image
@@ -94,7 +97,7 @@ function ProductCard({
                 key={color}
                 title={color}
                 className="size-3 rounded-full border border-white/40"
-                style={{ background: CATALOG_COLOR_HEX[color] }}
+                style={{ background: colorHex(palette, color) }}
               />
             ))}
           </span>
@@ -228,7 +231,7 @@ function Browser({
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(44%,240px),1fr))] gap-[clamp(10px,1.6vw,18px)]">
               {list.map((product) => (
                 <li key={product.id} className="min-w-0">
-                  <ProductCard product={product} currency={currency} />
+                  <ProductCard product={product} currency={currency} palette={catalog.colors} />
                 </li>
               ))}
             </ul>

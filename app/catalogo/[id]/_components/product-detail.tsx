@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useCart } from "@/app/_components/cart-provider";
 import { buildInquiryMessage, whatsappUrl } from "@/lib/cart";
 import {
-  CATALOG_COLOR_HEX,
+  colorHex,
   colorStock,
   designStock,
   formatPrice,
@@ -102,7 +102,7 @@ export default function ProductDetail({
         <div
           className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-border-soft"
           style={{
-            background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[color]} 0%, #0a1c29 100%)`,
+            background: `linear-gradient(160deg, ${colorHex(catalog.colors, color)} 0%, #0a1c29 100%)`,
           }}
         >
           <Image
@@ -194,7 +194,7 @@ export default function ProductDetail({
                   <span
                     aria-hidden="true"
                     className="size-6 rounded-full border border-white/40"
-                    style={{ background: CATALOG_COLOR_HEX[c] }}
+                    style={{ background: colorHex(catalog.colors, c) }}
                   />
                   {c}
                 </button>
