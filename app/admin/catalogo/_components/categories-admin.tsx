@@ -19,6 +19,7 @@ import {
   normalizeText,
   type Catalog,
   type CatalogCategory,
+  coverImage,
 } from "@/lib/catalog-shared";
 import { MAX_CATEGORIES, MAX_CATEGORY_NAME } from "@/lib/content-limits";
 
@@ -181,7 +182,7 @@ export default function CategoriesAdmin({ initial }: { initial: Catalog }) {
                   </button>
                 </span>
                 <Thumb
-                  image={products[0]?.images[0]}
+                  image={products[0] ? coverImage(products[0]) : undefined}
                   alt=""
                   size={44}
                   className="size-11 shrink-0 rounded-full border border-white/20"

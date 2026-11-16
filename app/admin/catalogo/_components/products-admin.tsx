@@ -25,6 +25,7 @@ import {
   normalizeText,
   stockTotal,
   type Catalog,
+  coverImage,
 } from "@/lib/catalog-shared";
 import { MAX_PRODUCTS } from "@/lib/content-limits";
 
@@ -162,7 +163,7 @@ export default function ProductsAdmin({
                   aria-label={`Editar ${product.name}`}
                   className={`block h-[65px] w-[52px] overflow-hidden rounded-[10px] border border-white/15 ${product.visible ? "" : "opacity-50"} ${focusRing}`}
                 >
-                  <Thumb image={product.images[0]} alt="" className="size-full" size={52} />
+                  <Thumb image={coverImage(product)} alt="" className="size-full" size={52} />
                 </Link>
                 <Link
                   href={href}
@@ -171,7 +172,7 @@ export default function ProductsAdmin({
                   <span className="truncate text-sm font-semibold">{product.name}</span>
                   <span className="truncate text-xs text-white/65">
                     <span className="min-[900px]:hidden">
-                      {priceLabel} · {stockLabel} · {product.images.length} fotos
+                      {priceLabel} · {stockLabel} · {product.designs.length} {product.designs.length === 1 ? "diseño" : "diseños"}
                     </span>
                     <span className="hidden min-[900px]:inline">{categoryLabel}</span>
                   </span>
@@ -185,16 +186,16 @@ export default function ProductsAdmin({
                   {stockLabel}
                 </span>
                 <span className="hidden items-center gap-[3px] min-[900px]:flex">
-                  {product.images.slice(0, 4).map((image) => (
+                  {product.designs.slice(0, 4).map((design) => (
                     <span
-                      key={image.url}
+                      key={design.id}
                       className="h-[25px] w-5 overflow-hidden rounded border border-white/15"
-                      style={{ background: CATALOG_COLOR_HEX[image.color] }}
+                      style={{ background: CATALOG_COLOR_HEX[design.colors[0]] }}
                     >
-                      <Thumb image={image} alt="" className="size-full" size={20} />
+                      <Thumb image={design.image} color={design.colors[0]} alt="" className="size-full" size={20} />
                     </span>
                   ))}
-                  <span className="ml-1 text-xs text-white/65">{product.images.length}</span>
+                  <span className="ml-1 text-xs text-white/65">{product.designs.length}</span>
                 </span>
                 <Switch
                   checked={product.visible}

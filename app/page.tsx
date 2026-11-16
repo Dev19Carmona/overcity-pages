@@ -1,5 +1,6 @@
 import SiteView from "@/app/_components/site-view";
 import { getPublicCatalog } from "@/lib/catalog";
+import { coverImage } from "@/lib/catalog-shared";
 import { getPublicContent } from "@/lib/content";
 
 export default async function Home() {
@@ -10,7 +11,7 @@ export default async function Home() {
   const catalogCategories = catalog.categories.flatMap((category) => {
     const products = catalog.products.filter((product) => product.categoryId === category.id);
     return products.length > 0
-      ? [{ id: category.id, name: category.name, count: products.length, cover: products[0].images[0].url }]
+      ? [{ id: category.id, name: category.name, count: products.length, cover: coverImage(products[0]) }]
       : [];
   });
 

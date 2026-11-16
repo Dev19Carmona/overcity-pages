@@ -10,6 +10,7 @@ import {
   cartSubtotal,
   lineImage,
   lineKey,
+  findDesign,
   lineStock,
   lineTotal,
   whatsappUrl,
@@ -166,9 +167,10 @@ export default function CartDrawer() {
                 const product = products.find((item) => item.id === line.productId);
                 if (!product) return null;
                 const key = lineKey(line);
-                const image = lineImage(product, line.color);
+                const image = lineImage(product, line.designId);
+                const designName = findDesign(product, line.designId)?.name ?? "";
                 const total = lineTotal(line, products);
-                const stock = lineStock(product, line.color, line.size);
+                const stock = lineStock(product, line.designId, line.color, line.size);
                 return (
                   <li
                     key={key}
@@ -182,7 +184,7 @@ export default function CartDrawer() {
                     >
                       {image && (
                         <Image
-                          src={image.url}
+                          src={image}
                           alt=""
                           width={144}
                           height={180}
@@ -200,7 +202,7 @@ export default function CartDrawer() {
                         {product.name}
                       </Link>
                       <span className="text-xs text-white/65">
-                        {line.color} · {line.size}
+                        {designName} · {line.color} · {line.size}
                       </span>
                       <div className="mt-auto flex w-max items-center rounded-full border border-white/20">
                         <button

@@ -3,10 +3,11 @@ import { cacheLife, cacheTag } from "next/cache";
 import {
   MAX_CATEGORIES,
   MAX_CATEGORY_NAME,
+  MAX_DESIGNS,
+  MAX_DESIGN_NAME,
   MAX_PRICE,
   MAX_PRODUCTS,
   MAX_PRODUCT_DESCRIPTION,
-  MAX_PRODUCT_IMAGES,
   MAX_PRODUCT_NAME,
   MAX_STOCK,
   MAX_TITLE,
@@ -23,9 +24,9 @@ import {
   type CatalogCategory,
   type CatalogColor,
   type CatalogCurrency,
-  type CatalogImage,
+  type CatalogDesign,
   type CatalogProduct,
-  type ProductStock,
+  type DesignStock,
 } from "@/lib/catalog-shared";
 import { getRedis } from "@/lib/redis";
 
@@ -35,7 +36,7 @@ export type {
   CatalogCategory,
   CatalogColor,
   CatalogCurrency,
-  CatalogImage,
+  CatalogDesign,
   CatalogProduct,
 } from "@/lib/catalog-shared";
 
@@ -138,48 +139,6 @@ export function validateCatalog(input: unknown): CatalogValidation {
       if (productIds.has(id)) throw new Error(`Id de producto repetido: ${id}.`);
       productIds.add(id);
 
-      const { colors } = item;
-      if (!Array.isArray(colors) || colors.length < 1) {
-        throw new Error(`El ${label} necesita al menos un color.`);
-      }
-      if (colors.length > CATALOG_COLORS.length) {
-        throw new Error(`El ${label} tiene demasiados colores.`);
-      }
-      const validColors = colors.map((color): CatalogColor => {
-        if (!CATALOG_COLORS.includes(color as CatalogColor)) {
-          throw new Error(`El color "${String(color)}" del ${label} no está en la paleta.`);
-        }
-        return color as CatalogColor;
-      });
-      if (new Set(validColors).size !== validColors.length) {
-        throw new Error(`El ${label} repite un color.`);
-      }
-
-      const { images } = item;
-      if (!Array.isArray(images) || images.length < 1) {
-        throw new Error(`El ${label} necesita al menos una imagen.`);
-      }
-      if (images.length > MAX_PRODUCT_IMAGES) {
-        throw new Error(`El ${label} no puede tener más de ${MAX_PRODUCT_IMAGES} imágenes.`);
-      }
-      const validImages = images.map((image, imageIndex): CatalogImage => {
-        if (!isRecord(image) || typeof image.url !== "string" || !image.url) {
-          throw new Error(`La imagen ${imageIndex + 1} del ${label} es inválida.`);
-        }
-        if (image.url.length > MAX_URL) {
-          throw new Error(`La URL de la imagen ${imageIndex + 1} del ${label} es demasiado larga.`);
-        }
-        if (!isBlobUrl(image.url)) {
-          throw new Error(`La imagen ${imageIndex + 1} del ${label} debe estar en Vercel Blob.`);
-        }
-        if (!validColors.includes(image.color as CatalogColor)) {
-          throw new Error(
-            `El color de la imagen ${imageIndex + 1} del ${label} no es uno de los colores del producto.`,
-          );
-        }
-        return { url: image.url, color: image.color as CatalogColor };
-      });
-
       const categoryId = item.categoryId ?? null;
       if (categoryId !== null && (typeof categoryId !== "string" || !categoryIds.has(categoryId))) {
         throw new Error(`La categoría del ${label} no existe.`);
@@ -187,46 +146,94 @@ export function validateCatalog(input: unknown): CatalogValidation {
       if (typeof item.visible !== "boolean") {
         throw new Error(`La visibilidad del ${label} es inválida.`);
       }
-
       const sizes = sizesFor(categoryId === null ? null : categoryById.get(categoryId));
-      const { stock } = item;
-      if (!isRecord(stock)) throw new Error(`El stock del ${label} es inválido.`);
-      if (
-        Object.keys(stock).length !== validColors.length ||
-        !validColors.every((color) => color in stock)
-      ) {
-        throw new Error(`El stock del ${label} debe tener los colores ${validColors.join(", ")}.`);
+
+      const { designs } = item;
+      if (!Array.isArray(designs) || designs.length < 1) {
+        throw new Error(`El ${label} necesita al menos un diseño.`);
       }
-      const validStock: ProductStock = Object.fromEntries(
-        validColors.map((color) => {
-          const row = stock[color];
-          if (!isRecord(row)) throw new Error(`El stock del color ${color} del ${label} es inválido.`);
-          if (Object.keys(row).length !== sizes.length || !sizes.every((size) => size in row)) {
-            throw new Error(
-              `El stock del color ${color} del ${label} debe tener las tallas ${sizes.join(", ")}.`,
-            );
+      if (designs.length > MAX_DESIGNS) {
+        throw new Error(`El ${label} no puede tener más de ${MAX_DESIGNS} diseños.`);
+      }
+      const designIds = new Set<string>();
+      const designNames = new Set<string>();
+      const validDesigns = designs.map((design, designIndex): CatalogDesign => {
+        const dLabel = `diseño ${designIndex + 1} del ${label}`;
+        if (!isRecord(design)) throw new Error(`El ${dLabel} es inválido.`);
+        const designId = text(design.id, `El id del ${dLabel}`, MAX_URL);
+        if (designIds.has(designId)) throw new Error(`Id de diseño repetido en el ${label}.`);
+        designIds.add(designId);
+        const designName = text(design.name, `El nombre del ${dLabel}`, MAX_DESIGN_NAME);
+        const nameKey = normalizeText(designName);
+        if (designNames.has(nameKey)) {
+          throw new Error(`El ${label} ya tiene un diseño llamado "${designName}".`);
+        }
+        designNames.add(nameKey);
+
+        const { image } = design;
+        if (typeof image !== "string" || !image) {
+          throw new Error(`El ${dLabel} necesita una foto.`);
+        }
+        if (image.length > MAX_URL) throw new Error(`La URL de la foto del ${dLabel} es demasiado larga.`);
+        if (!isBlobUrl(image)) throw new Error(`La foto del ${dLabel} debe estar en Vercel Blob.`);
+
+        const { colors } = design;
+        if (!Array.isArray(colors) || colors.length < 1) {
+          throw new Error(`El ${dLabel} necesita al menos un color.`);
+        }
+        if (colors.length > CATALOG_COLORS.length) {
+          throw new Error(`El ${dLabel} tiene demasiados colores.`);
+        }
+        const validColors = colors.map((color): CatalogColor => {
+          if (!CATALOG_COLORS.includes(color as CatalogColor)) {
+            throw new Error(`El color "${String(color)}" del ${dLabel} no está en la paleta.`);
           }
-          return [
-            color,
-            Object.fromEntries(
-              sizes.map((size) => {
-                const units = row[size];
-                if (
-                  typeof units !== "number" ||
-                  !Number.isInteger(units) ||
-                  units < 0 ||
-                  units > MAX_STOCK
-                ) {
-                  throw new Error(
-                    `El stock de ${color}, talla ${size}, del ${label} debe ser un entero entre 0 y ${MAX_STOCK}.`,
-                  );
-                }
-                return [size, units];
-              }),
-            ),
-          ];
-        }),
-      );
+          return color as CatalogColor;
+        });
+        if (new Set(validColors).size !== validColors.length) {
+          throw new Error(`El ${dLabel} repite un color.`);
+        }
+
+        const { stock } = design;
+        if (!isRecord(stock)) throw new Error(`El stock del ${dLabel} es inválido.`);
+        if (
+          Object.keys(stock).length !== validColors.length ||
+          !validColors.every((color) => color in stock)
+        ) {
+          throw new Error(`El stock del ${dLabel} debe tener los colores ${validColors.join(", ")}.`);
+        }
+        const validStock: DesignStock = Object.fromEntries(
+          validColors.map((color) => {
+            const row = stock[color];
+            if (!isRecord(row)) throw new Error(`El stock del color ${color} del ${dLabel} es inválido.`);
+            if (Object.keys(row).length !== sizes.length || !sizes.every((size) => size in row)) {
+              throw new Error(
+                `El stock del color ${color} del ${dLabel} debe tener las tallas ${sizes.join(", ")}.`,
+              );
+            }
+            return [
+              color,
+              Object.fromEntries(
+                sizes.map((size) => {
+                  const units = row[size];
+                  if (
+                    typeof units !== "number" ||
+                    !Number.isInteger(units) ||
+                    units < 0 ||
+                    units > MAX_STOCK
+                  ) {
+                    throw new Error(
+                      `El stock de ${color}, talla ${size}, del ${dLabel} debe ser un entero entre 0 y ${MAX_STOCK}.`,
+                    );
+                  }
+                  return [size, units];
+                }),
+              ),
+            ];
+          }),
+        );
+        return { id: designId, name: designName, image, colors: validColors, stock: validStock };
+      });
 
       return {
         id,
@@ -236,11 +243,9 @@ export function validateCatalog(input: unknown): CatalogValidation {
             ? ""
             : text(item.description, `La descripción del ${label}`, MAX_PRODUCT_DESCRIPTION, true),
         price: price(item.price, `El precio del ${label}`),
-        images: validImages,
         categoryId,
         visible: item.visible,
-        colors: validColors,
-        stock: validStock,
+        designs: validDesigns,
       };
     });
 
@@ -288,24 +293,45 @@ function migrateLegacyCatalog(stored: unknown): unknown {
 }
 
 // SPEC 09: el stock v2 anterior era un número por talla. Se convierte en memoria a stock por color
-// y talla: cada talla pasa al primer color y los demás quedan en 0 (el total no cambia). La detección
-// es por producto; la clave sigue siendo v2 y el primer guardado escribe la forma nueva.
-function migrateStockShape(stored: unknown): unknown {
+// y talla: cada talla pasa al primer color y los demás quedan en 0 (el total no cambia).
+function migrateStockShape(product: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(product.stock)) return product;
+  const { stock } = product;
+  if (!Object.values(stock).some((value) => typeof value === "number")) return product;
+  const colors = Array.isArray(product.colors) ? product.colors : [];
+  if (colors.length === 0) return product;
+  const zero = Object.fromEntries(Object.keys(stock).map((size) => [size, 0]));
+  return {
+    ...product,
+    stock: Object.fromEntries(
+      colors.map((color, index) => [String(color), index === 0 ? stock : { ...zero }]),
+    ),
+  };
+}
+
+// SPEC 10: un producto sin `designs` y con `images` (forma de la SPEC 09) se convierte en memoria:
+// cada imagen es un diseño "Diseño N" con todos los colores del producto; el stock completo va al
+// primer diseño y los demás quedan en 0. La detección es por producto; el primer guardado escribe la forma nueva.
+function migrateDesignsShape(stored: unknown): unknown {
   if (!isRecord(stored) || !Array.isArray(stored.products)) return stored;
   return {
     ...stored,
-    products: stored.products.map((product) => {
-      if (!isRecord(product) || !isRecord(product.stock)) return product;
-      const { stock } = product;
-      if (!Object.values(stock).some((value) => typeof value === "number")) return product;
-      const colors = Array.isArray(product.colors) ? product.colors : [];
-      if (colors.length === 0) return product;
-      const zero = Object.fromEntries(Object.keys(stock).map((size) => [size, 0]));
+    products: stored.products.map((raw) => {
+      if (!isRecord(raw) || "designs" in raw || !Array.isArray(raw.images)) return raw;
+      const product = migrateStockShape(raw);
+      const { images, colors, stock, ...rest } = product;
+      const productColors = Array.isArray(colors) ? (colors as unknown[]).map(String) : [];
+      const firstRow = isRecord(stock) ? Object.values(stock).find(isRecord) : undefined;
+      const sizes = firstRow ? Object.keys(firstRow) : [];
       return {
-        ...product,
-        stock: Object.fromEntries(
-          colors.map((color, index) => [String(color), index === 0 ? stock : { ...zero }]),
-        ),
+        ...rest,
+        designs: (images as unknown[]).map((image, index) => ({
+          id: `diseno-${index + 1}`, // estable entre lecturas hasta el primer guardado
+          name: `Diseño ${index + 1}`,
+          image: isRecord(image) ? image.url : image,
+          colors: productColors,
+          stock: index === 0 && isRecord(stock) ? stock : emptyStock(productColors, sizes),
+        })),
       };
     }),
   };
@@ -315,12 +341,12 @@ function migrateStockShape(stored: unknown): unknown {
 async function loadStored(redis: NonNullable<ReturnType<typeof getRedis>>): Promise<Catalog> {
   const stored = await redis.get<unknown>(CATALOG_KEY);
   if (stored !== null) {
-    const result = validateCatalog(migrateStockShape(stored));
+    const result = validateCatalog(migrateDesignsShape(stored));
     return result.ok ? result.catalog : DEFAULT_CATALOG;
   }
   const legacy = await redis.get<unknown>(LEGACY_CATALOG_KEY);
   if (legacy === null) return DEFAULT_CATALOG;
-  const result = validateCatalog(migrateLegacyCatalog(legacy));
+  const result = validateCatalog(migrateDesignsShape(migrateLegacyCatalog(legacy)));
   return result.ok ? result.catalog : DEFAULT_CATALOG;
 }
 
@@ -344,7 +370,7 @@ export async function getStoredCatalog(): Promise<Catalog> {
 
 // URLs de Blob que usa el catálogo; sirve para borrar las que quedan sin uso.
 export function catalogImageUrls(catalog: Catalog): Set<string> {
-  return new Set(catalog.products.flatMap((product) => product.images.map((image) => image.url)));
+  return new Set(catalog.products.flatMap((product) => product.designs.map((design) => design.image)));
 }
 
 // Sin caché y con todos los productos, para el panel.

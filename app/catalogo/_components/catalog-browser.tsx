@@ -8,6 +8,7 @@ import {
   CATALOG_COLOR_HEX,
   formatPrice,
   normalizeText,
+  productColors,
   stockTotal,
   type Catalog,
   type CatalogCurrency,
@@ -38,8 +39,9 @@ function ProductCard({
   product: CatalogProduct;
   currency: CatalogCurrency;
 }) {
-  const cover = product.images[0];
-  const second = product.images[1];
+  const cover = product.designs[0];
+  const second = product.designs[1];
+  const colors = productColors(product);
   const soldOut = stockTotal(product) === 0;
   return (
     <Link
@@ -49,11 +51,11 @@ function ProductCard({
       <div
         className="relative aspect-[4/5] w-full overflow-hidden"
         style={{
-          background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[cover.color]} 0%, #0a1c29 100%)`,
+          background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[cover.colors[0]]} 0%, #0a1c29 100%)`,
         }}
       >
         <Image
-          src={cover.url}
+          src={cover.image}
           alt={product.name}
           width={480}
           height={600}
@@ -62,7 +64,7 @@ function ProductCard({
         />
         {second && (
           <Image
-            src={second.url}
+            src={second.image}
             alt=""
             width={480}
             height={600}
@@ -77,7 +79,7 @@ function ProductCard({
           </span>
         )}
         <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px]">
-          {product.images.length} {product.images.length === 1 ? "foto" : "fotos"}
+          {product.designs.length} {product.designs.length === 1 ? "diseño" : "diseños"}
         </span>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 p-3">
@@ -86,8 +88,8 @@ function ProductCard({
           <span className="text-sm font-bold text-[#ff3b45]">
             {product.price === null ? "" : formatPrice(product.price, currency)}
           </span>
-          <span className="flex gap-1" aria-label={`Colores: ${product.colors.join(", ")}`}>
-            {product.colors.map((color) => (
+          <span className="flex gap-1" aria-label={`Colores: ${colors.join(", ")}`}>
+            {colors.map((color) => (
               <span
                 key={color}
                 title={color}

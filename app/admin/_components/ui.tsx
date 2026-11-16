@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { CATALOG_COLOR_HEX, type CatalogImage } from "@/lib/catalog-shared";
+import { CATALOG_COLOR_HEX, type CatalogColor } from "@/lib/catalog-shared";
 
 // Estilos y piezas compartidas por las pantallas del panel de catálogo (SPEC 07).
 export const focusRing =
@@ -64,11 +64,13 @@ export function Switch({
 // Miniatura de producto: la foto, o un degradado del color si no hay.
 export function Thumb({
   image,
+  color = "Negro",
   alt,
   className,
   size = 80,
 }: {
-  image: CatalogImage | undefined;
+  image: string | undefined;
+  color?: CatalogColor;
   alt: string;
   className?: string;
   size?: number;
@@ -80,11 +82,11 @@ export function Thumb({
     <span
       className={`relative block overflow-hidden ${className ?? ""}`}
       style={{
-        background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[image.color]} 0%, #0a1c29 100%)`,
+        background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[color]} 0%, #0a1c29 100%)`,
       }}
     >
       <Image
-        src={image.url}
+        src={image}
         alt={alt}
         width={size}
         height={Math.round(size * 1.25)}
