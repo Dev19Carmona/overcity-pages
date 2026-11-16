@@ -39,6 +39,7 @@ function cartCatalog(catalog: Catalog, brandName: string): CartCatalog {
         stock: design.stock,
       })),
     })),
+    colors: catalog.colors.map(({ name, hex }) => ({ name, hex })),
     currency: catalog.currency,
     whatsapp: catalog.whatsapp,
     freeShippingFrom: catalog.freeShippingFrom,

@@ -21,6 +21,12 @@ const ITEMS = [
     match: (p: string) => p.startsWith("/admin/catalogo/categorias"),
   },
   {
+    href: "/admin/catalogo/colores",
+    label: "Colores",
+    group: "Catálogo",
+    match: (p: string) => p.startsWith("/admin/catalogo/colores"),
+  },
+  {
     href: "/admin/catalogo/ajustes",
     label: "Ajustes del catálogo",
     group: "Catálogo",

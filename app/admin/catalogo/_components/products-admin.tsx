@@ -20,7 +20,7 @@ import {
   useToast,
 } from "@/app/admin/_components/ui";
 import {
-  CATALOG_COLOR_HEX,
+  colorHex,
   formatPrice,
   normalizeText,
   stockTotal,
@@ -190,9 +190,14 @@ export default function ProductsAdmin({
                     <span
                       key={design.id}
                       className="h-[25px] w-5 overflow-hidden rounded border border-white/15"
-                      style={{ background: CATALOG_COLOR_HEX[design.colors[0]] }}
                     >
-                      <Thumb image={design.image} color={design.colors[0]} alt="" className="size-full" size={20} />
+                      <Thumb
+                        image={design.image}
+                        hex={colorHex(catalog.colors, design.colors[0])}
+                        alt=""
+                        className="size-full"
+                        size={20}
+                      />
                     </span>
                   ))}
                   <span className="ml-1 text-xs text-white/65">{product.designs.length}</span>

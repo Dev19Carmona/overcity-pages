@@ -1,6 +1,5 @@
 // Bolsa de compra (SPEC 08). Solo lógica pura y acceso seguro a localStorage; apto para el cliente.
 import {
-  CATALOG_COLORS,
   formatPrice,
   stockOf as productStockOf,
   type CatalogColor,
@@ -37,6 +36,7 @@ export type CartProduct = {
 
 export type CartCatalog = {
   products: CartProduct[];
+  colors: { name: string; hex: string }[]; // SPEC 11: para pintar las miniaturas
   currency: CatalogCurrency;
   whatsapp: string;
   freeShippingFrom: number | null;
@@ -81,7 +81,7 @@ export function readCart(): CartLine[] {
         line !== null &&
         typeof line.productId === "string" &&
         (line.designId === undefined || typeof line.designId === "string") &&
-        CATALOG_COLORS.includes(line.color) &&
+        typeof line.color === "string" &&
         typeof line.size === "string" &&
         Number.isInteger(line.qty) &&
         line.qty > 0,

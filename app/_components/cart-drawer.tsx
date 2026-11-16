@@ -15,7 +15,7 @@ import {
   lineTotal,
   whatsappUrl,
 } from "@/lib/cart";
-import { CATALOG_COLOR_HEX, formatPrice } from "@/lib/catalog-shared";
+import { colorHex, formatPrice } from "@/lib/catalog-shared";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
@@ -179,7 +179,7 @@ export default function CartDrawer() {
                     <span
                       className="relative block h-[90px] w-[72px] overflow-hidden rounded-[10px]"
                       style={{
-                        background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[line.color]} 0%, #0a1c29 100%)`,
+                        background: `linear-gradient(160deg, ${colorHex(catalog.colors, line.color)} 0%, #0a1c29 100%)`,
                       }}
                     >
                       {image && (

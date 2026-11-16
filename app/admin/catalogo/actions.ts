@@ -11,10 +11,12 @@ import {
   type Catalog,
 } from "@/lib/catalog";
 import {
+  colorUsage,
   normalizeWhatsapp,
   resizeStock,
   sizesFor,
   type CatalogCategory,
+  type CatalogColorDef,
   type CatalogCurrency,
 } from "@/lib/catalog-shared";
 import { isBlobUrl } from "@/lib/content";
@@ -117,6 +119,26 @@ export async function saveCategories(
       return { ...product, categoryId, designs };
     });
     return { ...current, categories, products };
+  });
+}
+
+// Reemplaza la lista de colores (crear, hex, orden, ocultar, quitar). El nombre es el identificador:
+// no se puede quitar un color que algún diseño usa (el servidor recalcula el uso). La validación
+// del catálogo completo revisa nombres, hex y el tope.
+export async function saveColors(colors: CatalogColorDef[]): Promise<CatalogActionResult> {
+  return apply((current) => {
+    if (!Array.isArray(colors)) return "Los colores deben ser una lista.";
+    const kept = new Set(colors.map((color) => (color as { name?: unknown })?.name));
+    for (const old of current.colors) {
+      if (kept.has(old.name)) continue;
+      const { designs, products } = colorUsage(current, old.name);
+      if (designs > 0) {
+        return `No se puede eliminar «${old.name}»: está en ${designs} ${
+          designs === 1 ? "diseño" : "diseños"
+        } de ${products} ${products === 1 ? "producto" : "productos"}. Puedes ocultarlo.`;
+      }
+    }
+    return { ...current, colors };
   });
 }
 

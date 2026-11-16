@@ -21,7 +21,7 @@ import {
   useToast,
 } from "@/app/admin/_components/ui";
 import {
-  CATALOG_COLOR_HEX,
+  colorHex,
   colorStock,
   designStock,
   formatPrice,
@@ -236,6 +236,7 @@ export default function ProductEditor({
 
       <ProductDesigns
         designs={draft.designs}
+        palette={catalog.colors}
         sizes={sizes}
         onChange={(update) =>
           setDraft((current) => ({ ...current, designs: update(current.designs) }))
@@ -405,7 +406,7 @@ export default function ProductEditor({
                             <span
                               aria-hidden="true"
                               className="size-4 shrink-0 rounded-full border border-white/40"
-                              style={{ background: CATALOG_COLOR_HEX[color] }}
+                              style={{ background: colorHex(catalog.colors, color) }}
                             />
                             {color}
                           </span>
