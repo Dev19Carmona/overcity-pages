@@ -7,21 +7,26 @@ import { buildInquiryMessage, whatsappUrl } from "@/lib/cart";
 import {
   CATALOG_COLOR_HEX,
   colorStock,
+  designStock,
   formatPrice,
   stockOf,
   type CatalogColor,
   type CatalogCurrency,
+  type CatalogDesign,
   type CatalogProduct,
 } from "@/lib/catalog-shared";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
 
-const arrowButton = `absolute top-1/2 flex size-[42px] -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition hover:border-theme-red ${focusRing}`;
+// Primer color con stock de un diseño; si ninguno tiene, el primero.
+function firstColor(design: CatalogDesign): CatalogColor {
+  return design.colors.find((c) => colorStock(design, c) > 0) ?? design.colors[0];
+}
 
-// Galería por color, selector de color (tachado si no tiene stock en ninguna talla) y de talla
-// (tachada según el stock del color elegido), cantidad, botón para agregar a la bolsa y consulta
-// por WhatsApp (SPEC 08, SPEC 09).
+// Selector de diseños (foto grande y miniaturas), de color (tachado si no tiene stock en ninguna
+// talla) y de talla (tachada según el stock de diseño + color), cantidad, botón para agregar a la
+// bolsa y consulta por WhatsApp (SPEC 08, SPEC 09, SPEC 10).
 export default function ProductDetail({
   product,
   categoryName,
@@ -31,23 +36,21 @@ export default function ProductDetail({
   categoryName: string | null;
   currency: CatalogCurrency;
 }) {
-  // Color inicial: el primero con stock; si ninguno tiene, el primero.
-  const [color, setColor] = useState<CatalogColor>(
-    () => product.colors.find((c) => colorStock(product, c) > 0) ?? product.colors[0],
+  // Diseño inicial: el primero con stock (o el primero); color inicial: el primero con stock de ese diseño.
+  const [designId, setDesignId] = useState<string>(
+    () => (product.designs.find((d) => designStock(d) > 0) ?? product.designs[0]).id,
   );
-  const [index, setIndex] = useState(0);
+  const design = product.designs.find((d) => d.id === designId) ?? product.designs[0];
+  const [colorChoice, setColorChoice] = useState<CatalogColor>(() => firstColor(design));
+  const color = design.colors.includes(colorChoice) ? colorChoice : firstColor(design);
   const [size, setSize] = useState<string | null>(null);
   const [wantedQty, setWantedQty] = useState(1);
   const { add, openCart, catalog } = useCart();
 
-  const byColor = product.images.filter((image) => image.color === color);
-  const images = byColor.length > 0 ? byColor : product.images;
-  const current = images[Math.min(index, images.length - 1)];
-  const position = Math.min(index, images.length - 1);
-  // Tallas del producto (las mismas en todos los colores) y existencia del color elegido.
-  const sizes = Object.keys(product.stock[product.colors[0]] ?? {});
-  const soldOut = colorStock(product, color) === 0;
-  const units = size ? stockOf(product, color, size) : 0;
+  // Tallas del producto (las mismas en todos los diseños y colores) y existencia de diseño + color.
+  const sizes = Object.keys(design.stock[design.colors[0]] ?? {});
+  const soldOut = colorStock(design, color) === 0;
+  const units = size ? stockOf(product, design.id, color, size) : 0;
   const sizeMessage = soldOut
     ? "Agotado"
     : !size
@@ -56,7 +59,7 @@ export default function ProductDetail({
         ? `¡Quedan ${units}!`
         : "Disponible";
 
-  // La cantidad nunca pasa del stock de la combinación color + talla elegida.
+  // La cantidad nunca pasa del stock de la combinación diseño + color + talla elegida.
   const qty = Math.max(1, Math.min(wantedQty, units || 1));
   const canAdd = !soldOut && size !== null && units > 0;
   const addLabel = soldOut
@@ -69,22 +72,28 @@ export default function ProductDetail({
 
   function addToCart() {
     if (!canAdd || !size) return;
-    add({ productId: product.id, color, size, qty });
+    add({ productId: product.id, designId: design.id, color, size, qty });
     openCart();
   }
 
   function ask() {
     const text = buildInquiryMessage(
       product,
-      { color, size },
+      { design: design.name, color, size },
       catalog.brandName,
       window.location.origin,
     );
     window.open(whatsappUrl(catalog.whatsapp, text), "_blank", "noopener,noreferrer");
   }
 
-  function go(step: number) {
-    setIndex((position + step + images.length) % images.length);
+  function pickDesign(next: CatalogDesign) {
+    if (next.id === design.id) return;
+    // Si el color elegido no existe en el nuevo diseño, pasa al primero con stock de ese diseño.
+    const nextColor = next.colors.includes(color) ? color : firstColor(next);
+    setDesignId(next.id);
+    setColorChoice(nextColor);
+    // Una talla sin stock en la nueva combinación se deselecciona.
+    if (size && stockOf(product, next.id, nextColor, size) === 0) setSize(null);
   }
 
   return (
@@ -93,52 +102,38 @@ export default function ProductDetail({
         <div
           className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-border-soft"
           style={{
-            background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[current.color]} 0%, #0a1c29 100%)`,
+            background: `linear-gradient(160deg, ${CATALOG_COLOR_HEX[color]} 0%, #0a1c29 100%)`,
           }}
         >
           <Image
-            key={current.url}
-            src={current.url}
-            alt={`${product.name}, ${current.color}, imagen ${position + 1}`}
+            key={design.image}
+            src={design.image}
+            alt={`${product.name}, diseño ${design.name}`}
             width={800}
             height={1000}
             unoptimized
             priority
             className="absolute inset-0 size-full object-cover"
           />
-          {images.length > 1 && (
-            <>
-              <button type="button" aria-label="Imagen anterior" onClick={() => go(-1)} className={`${arrowButton} left-2.5`}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-              </button>
-              <button type="button" aria-label="Imagen siguiente" onClick={() => go(1)} className={`${arrowButton} right-2.5`}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </button>
-            </>
-          )}
-          <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold">
-            {position + 1} / {images.length}
+          <span className="absolute bottom-3 left-3 max-w-[80%] truncate rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold">
+            {design.name}
           </span>
         </div>
-        {images.length > 1 && (
+        {product.designs.length > 1 && (
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))] gap-2">
-            {images.map((image, i) => (
-              <li key={image.url} className="min-w-0">
+            {product.designs.map((d) => (
+              <li key={d.id} className="min-w-0">
                 <button
                   type="button"
-                  aria-label={`Ver imagen ${i + 1}`}
-                  aria-current={i === position}
-                  onClick={() => setIndex(i)}
+                  aria-label={`Diseño ${d.name}`}
+                  aria-pressed={d.id === design.id}
+                  onClick={() => pickDesign(d)}
                   className={`relative block aspect-[4/5] w-full overflow-hidden rounded-[10px] border-2 transition-opacity ${focusRing} ${
-                    i === position ? "border-theme-red" : "border-transparent opacity-60 hover:opacity-100"
+                    d.id === design.id ? "border-theme-red" : "border-transparent opacity-60 hover:opacity-100"
                   }`}
                 >
                   <Image
-                    src={image.url}
+                    src={d.image}
                     alt=""
                     width={96}
                     height={120}
@@ -171,11 +166,16 @@ export default function ProductDetail({
 
         <div className="flex flex-col gap-2.5">
           <div className="text-[13px]">
+            {product.designs.length > 1 && (
+              <>
+                Diseño: <strong>{design.name}</strong> ·{" "}
+              </>
+            )}
             Color: <strong>{color}</strong>
           </div>
           <div className="flex flex-wrap gap-2">
-            {product.colors.map((c) => {
-              const out = colorStock(product, c) === 0;
+            {design.colors.map((c) => {
+              const out = colorStock(design, c) === 0;
               return (
                 <button
                   key={c}
@@ -183,10 +183,9 @@ export default function ProductDetail({
                   aria-pressed={c === color}
                   aria-label={out ? `${c}, agotado` : c}
                   onClick={() => {
-                    setColor(c);
-                    setIndex(0);
+                    setColorChoice(c);
                     // Una talla sin stock en el nuevo color se deselecciona.
-                    if (size && stockOf(product, c, size) === 0) setSize(null);
+                    if (size && stockOf(product, design.id, c, size) === 0) setSize(null);
                   }}
                   className={`flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white transition hover:border-theme-red ${focusRing} ${
                     c === color ? "border-theme-red bg-theme-red/25" : "border-white/15 bg-black/35"
@@ -213,7 +212,7 @@ export default function ProductDetail({
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-2">
             {sizes.map((s) => {
-              const out = stockOf(product, color, s) === 0;
+              const out = stockOf(product, design.id, color, s) === 0;
               const on = size === s;
               return (
                 <button

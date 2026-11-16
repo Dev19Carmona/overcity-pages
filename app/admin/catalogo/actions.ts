@@ -98,7 +98,7 @@ export async function saveCatalogSettings(input: {
 
 // Reemplaza la lista de categorías (crear, renombrar, reordenar, talla única, quitar).
 // Los productos de una categoría quitada quedan sin categoría; si cambian sus tallas, el stock
-// se ajusta por color (talla única = suma de las tallas de ese color; de única a varias tallas
+// se ajusta por diseño y color (talla única = suma de las tallas de ese color; de única a varias tallas
 // empieza en 0).
 export async function saveCategories(
   categories: CatalogCategory[],
@@ -110,8 +110,11 @@ export async function saveCategories(
       const categoryId =
         product.categoryId !== null && byId.has(product.categoryId) ? product.categoryId : null;
       const sizes = sizesFor(categoryId === null ? null : byId.get(categoryId));
-      const stock = resizeStock(product.stock, product.colors, sizes);
-      return { ...product, categoryId, stock };
+      const designs = product.designs.map((design) => ({
+        ...design,
+        stock: resizeStock(design.stock, design.colors, sizes),
+      }));
+      return { ...product, categoryId, designs };
     });
     return { ...current, categories, products };
   });

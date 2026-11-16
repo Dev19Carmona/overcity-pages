@@ -23,14 +23,18 @@ export type CatalogCategory = {
   oneSize: boolean; // true = sus productos solo tienen la talla "Única"
 };
 
-export type CatalogImage = {
-  url: string; // URL de Vercel Blob
-  color: CatalogColor; // debe estar en product.colors
-};
-
 // Stock por color y talla (SPEC 09): stock[color][talla]. Las claves de primer nivel son los colores
-// del producto y las de segundo nivel, las tallas de su categoría; cada valor es un entero 0..MAX_STOCK.
-export type ProductStock = Record<string, Record<string, number>>;
+// del diseño y las de segundo nivel, las tallas de la categoría; cada valor es un entero 0..MAX_STOCK.
+export type DesignStock = Record<string, Record<string, number>>;
+
+// Diseño (SPEC 10): una foto, sus colores y su stock por color y talla.
+export type CatalogDesign = {
+  id: string; // estable dentro del producto
+  name: string; // 1 a MAX_DESIGN_NAME caracteres, único dentro del producto
+  image: string; // URL de Vercel Blob
+  colors: CatalogColor[]; // 1 a 6, sin repetir
+  stock: DesignStock; // stock[color][talla]
+};
 
 export type CatalogProduct = {
   id: string; // uuid; es el id de /catalogo/[id]
@@ -39,9 +43,7 @@ export type CatalogProduct = {
   price: number | null; // entero >= 0 en la moneda del catálogo; null = sin precio
   categoryId: string | null; // null = sin categoría
   visible: boolean; // false = no sale en el sitio público
-  colors: CatalogColor[]; // 1 a 6, sin repetir
-  stock: ProductStock; // stock[color][talla]; ver ProductStock
-  images: CatalogImage[]; // 1 a 8; images[0] es la portada
+  designs: CatalogDesign[]; // 1 a 8; designs[0] es la portada
 };
 
 export type Catalog = {
@@ -59,38 +61,59 @@ export function sizesFor(category: Pick<CatalogCategory, "oneSize"> | null | und
 }
 
 // Tabla de stock en 0: una fila por color y una celda por talla.
-export function emptyStock(colors: readonly string[], sizes: readonly string[]): ProductStock {
+export function emptyStock(colors: readonly string[], sizes: readonly string[]): DesignStock {
   return Object.fromEntries(
     colors.map((color) => [color, Object.fromEntries(sizes.map((size) => [size, 0]))]),
   );
 }
 
-// Unidades de una combinación color + talla; 0 si no existe.
-export function stockOf(product: { stock: ProductStock }, color: string, size: string): number {
-  const units = product.stock[color]?.[size];
+// Unidades de una combinación diseño + color + talla; 0 si no existe.
+export function stockOf(
+  product: { designs: { id: string; stock: DesignStock }[] },
+  designId: string,
+  color: string,
+  size: string,
+): number {
+  const design = product.designs.find((item) => item.id === designId);
+  const units = design?.stock[color]?.[size];
   return typeof units === "number" ? units : 0;
 }
 
-// Suma de las tallas de un color.
-export function colorStock(product: { stock: ProductStock }, color: string): number {
-  return Object.values(product.stock[color] ?? {}).reduce((sum, value) => sum + value, 0);
+// Suma de las tallas de un color de un diseño.
+export function colorStock(design: { stock: DesignStock }, color: string): number {
+  return Object.values(design.stock[color] ?? {}).reduce((sum, value) => sum + value, 0);
 }
 
-// Suma de todos los colores y tallas.
-export function stockTotal(product: { stock: ProductStock }): number {
-  return Object.values(product.stock).reduce(
+// Suma de todo un diseño.
+export function designStock(design: { stock: DesignStock }): number {
+  return Object.values(design.stock).reduce(
     (total, row) => total + Object.values(row).reduce((sum, value) => sum + value, 0),
     0,
   );
 }
 
+// Suma de todos los diseños, colores y tallas.
+export function stockTotal(product: { designs: { stock: DesignStock }[] }): number {
+  return product.designs.reduce((total, design) => total + designStock(design), 0);
+}
+
+// Unión de los colores de los diseños, en el orden de la paleta.
+export function productColors(product: { designs: { colors: CatalogColor[] }[] }): CatalogColor[] {
+  return CATALOG_COLORS.filter((color) => product.designs.some((d) => d.colors.includes(color)));
+}
+
+// Foto del primer diseño.
+export function coverImage(product: { designs: { image: string }[] }): string {
+  return product.designs[0]?.image ?? "";
+}
+
 // Ajusta la tabla a los colores y tallas actuales. Un color nuevo entra en 0 y uno quitado
 // desaparece. Si las tallas de una fila cambian: "Única" suma la fila; de ahí a varias tallas vuelve a 0.
 export function resizeStock(
-  stock: ProductStock,
+  stock: DesignStock,
   colors: readonly string[],
   sizes: readonly string[],
-): ProductStock {
+): DesignStock {
   const oneSize = sizes.length === 1 && sizes[0] === ONE_SIZE;
   return Object.fromEntries(
     colors.map((color) => {

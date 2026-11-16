@@ -7,7 +7,7 @@ import {
   saveCategories,
   saveProduct,
 } from "@/app/admin/catalogo/actions";
-import ProductImages from "@/app/admin/catalogo/_components/product-images";
+import ProductDesigns from "@/app/admin/catalogo/_components/product-designs";
 import {
   ConfirmDialog,
   focusRing,
@@ -22,17 +22,15 @@ import {
 } from "@/app/admin/_components/ui";
 import {
   CATALOG_COLOR_HEX,
-  CATALOG_COLORS,
   colorStock,
-  emptyStock,
+  designStock,
   formatPrice,
   resizeStock,
   sizesFor,
   stockTotal,
   type Catalog,
   type CatalogCategory,
-  type CatalogColor,
-  type CatalogImage,
+  type CatalogDesign,
   type CatalogProduct,
 } from "@/lib/catalog-shared";
 import {
@@ -47,6 +45,14 @@ import { normalizeText } from "@/lib/catalog-shared";
 
 const NEW_CATEGORY = "__new";
 
+// Ajusta el stock de todos los diseños a las tallas de la categoría.
+function resizeDesigns(designs: CatalogDesign[], sizes: string[]): CatalogDesign[] {
+  return designs.map((design) => ({
+    ...design,
+    stock: resizeStock(design.stock, design.colors, sizes),
+  }));
+}
+
 function blankProduct(categories: CatalogCategory[]): CatalogProduct {
   const first = categories[0] ?? null;
   return {
@@ -56,9 +62,7 @@ function blankProduct(categories: CatalogCategory[]): CatalogProduct {
     price: null,
     categoryId: first?.id ?? null,
     visible: true,
-    colors: ["Negro"],
-    stock: emptyStock(["Negro"], sizesFor(first)),
-    images: [],
+    designs: [],
   };
 }
 
@@ -101,28 +105,8 @@ export default function ProductEditor({
     setDraft((current) => ({
       ...current,
       categoryId,
-      stock: resizeStock(current.stock, current.colors, sizesFor(next)),
+      designs: resizeDesigns(current.designs, sizesFor(next)),
     }));
-  }
-
-  function toggleColor(color: CatalogColor) {
-    if (draft.colors.includes(color)) {
-      if (draft.colors.length === 1) return show("El producto necesita al menos un color.");
-      const rest = draft.colors.filter((c) => c !== color);
-      const moved = draft.images.filter((image) => image.color === color).length;
-      setDraft((current) => ({
-        ...current,
-        colors: rest,
-        stock: resizeStock(current.stock, rest, sizes),
-        images: current.images.map((image) =>
-          image.color === color ? { ...image, color: rest[0] } : image,
-        ),
-      }));
-      if (moved) show(`${moved} ${moved === 1 ? "foto pasó" : "fotos pasaron"} a ${rest[0]}.`);
-    } else {
-      const colors = CATALOG_COLORS.filter((c) => c === color || draft.colors.includes(c));
-      setDraft((current) => ({ ...current, colors, stock: resizeStock(current.stock, colors, sizes) }));
-    }
   }
 
   function createCategory() {
@@ -149,15 +133,26 @@ export default function ProductEditor({
     setDraft((current) => ({
       ...current,
       categoryId: next.id,
-      stock: resizeStock(current.stock, current.colors, sizesFor(next)),
+      designs: resizeDesigns(current.designs, sizesFor(next)),
     }));
   }
 
   function save() {
     if (!draft.name.trim()) return show("Ponle un nombre al producto.");
-    if (draft.images.length === 0) return show("Sube al menos una foto.");
+    if (draft.designs.length === 0) return show("Sube al menos un diseño.");
+    const names = new Set<string>();
+    for (const design of draft.designs) {
+      const name = design.name.trim();
+      if (!name) return show("Todos los diseños necesitan un nombre.");
+      if (names.has(normalizeText(name))) return show(`Hay dos diseños llamados «${name}».`);
+      names.add(normalizeText(name));
+    }
     startSaving(async () => {
-      const result = await saveProduct({ ...draft, name: draft.name.trim() });
+      const result = await saveProduct({
+        ...draft,
+        name: draft.name.trim(),
+        designs: draft.designs.map((design) => ({ ...design, name: design.name.trim() })),
+      });
       if (result.ok) {
         const stored = result.catalog.products.find((p) => p.id === draft.id) ?? draft;
         setSaved(stored);
@@ -187,7 +182,7 @@ export default function ProductEditor({
   }
 
   const status = uploading
-    ? "Subiendo fotos…"
+    ? "Subiendo diseños…"
     : dirty
       ? "Cambios sin guardar"
       : "Todo guardado";
@@ -239,12 +234,11 @@ export default function ProductEditor({
         </button>
       </div>
 
-      <ProductImages
-        productName={draft.name}
-        images={draft.images}
-        colors={draft.colors}
+      <ProductDesigns
+        designs={draft.designs}
+        sizes={sizes}
         onChange={(update) =>
-          setDraft((current) => ({ ...current, images: update(current.images) }))
+          setDraft((current) => ({ ...current, designs: update(current.designs) }))
         }
         onBusyChange={setUploading}
         notify={show}
@@ -361,109 +355,120 @@ export default function ProductEditor({
         </section>
 
         <section className={`${panel} flex flex-col gap-3 p-4`}>
-          <h2 className="text-[17px] font-bold">Colores</h2>
-          <div className="flex flex-wrap gap-2">
-            {CATALOG_COLORS.map((color) => {
-              const on = draft.colors.includes(color);
-              const count = draft.images.filter((image: CatalogImage) => image.color === color).length;
-              return (
-                <button
-                  key={color}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => toggleColor(color)}
-                  className={`flex items-center gap-2 rounded-full border py-[5px] pl-[5px] pr-3 text-[13px] font-semibold text-white ${focusRing} ${
-                    on ? "border-theme-red bg-theme-red/20" : "border-white/15 bg-black/30"
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="size-[22px] rounded-full border border-white/40"
-                    style={{ background: CATALOG_COLOR_HEX[color] }}
-                  />
-                  {color}
-                  {on && <span className="text-[11px] opacity-60">{count}</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-baseline justify-between border-t border-white/10 pt-3">
-            <h2 className="text-[17px] font-bold">Stock por color y talla</h2>
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-[17px] font-bold">Stock por diseño, color y talla</h2>
             <span className="text-[13px] text-white/70">{stockTotal(draft)} unidades</span>
           </div>
-          {/* La tabla se desplaza dentro de su caja; la página no hace scroll horizontal. */}
-          <div className="overflow-x-auto rounded-xl border border-white/15 bg-black/35">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="text-[11px] font-bold text-white/70">
-                  <th scope="col" className="sticky left-0 z-10 bg-theme-navy px-2.5 py-2">
-                    Color
-                  </th>
-                  {sizes.map((size) => (
-                    <th key={size} scope="col" className="px-1.5 py-2 text-center">
-                      {size}
-                    </th>
-                  ))}
-                  <th scope="col" className="px-2.5 py-2 text-right">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {draft.colors.map((color) => (
-                  <tr key={color} className="border-t border-white/10">
-                    <th
-                      scope="row"
-                      className="sticky left-0 z-10 bg-theme-navy px-2.5 py-1.5 text-[13px] font-semibold"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="size-4 shrink-0 rounded-full border border-white/40"
-                          style={{ background: CATALOG_COLOR_HEX[color] }}
-                        />
-                        {color}
-                      </span>
-                    </th>
-                    {sizes.map((size) => {
-                      const units = draft.stock[color]?.[size] ?? 0;
-                      return (
-                        <td key={size} className="px-1 py-1.5">
-                          <input
-                            aria-label={`Stock ${color}, talla ${size}`}
-                            value={String(units)}
-                            inputMode="numeric"
-                            onChange={(event) => {
-                              const digits = event.target.value.replace(/\D/g, "");
-                              const value = Math.min(digits ? parseInt(digits, 10) : 0, MAX_STOCK);
-                              setDraft((current) => ({
-                                ...current,
-                                stock: {
-                                  ...current.stock,
-                                  [color]: { ...current.stock[color], [size]: value },
-                                },
-                              }));
-                            }}
-                            className={`h-9 w-14 rounded-lg border bg-black/30 px-1 text-center text-base font-extrabold ${focusRing} ${
-                              units === 0
-                                ? "border-theme-red/50 text-[#ff5a63]"
-                                : "border-white/15 text-white"
-                            }`}
-                          />
+          {draft.designs.length === 0 && (
+            <p className="text-sm text-white/70">Sube al menos un diseño para cargar su stock.</p>
+          )}
+          {draft.designs.map((design, designIndex) => (
+            <details
+              key={design.id}
+              open={designIndex === 0}
+              className="rounded-xl border border-white/15 bg-black/25"
+            >
+              <summary
+                className={`flex cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-sm font-semibold ${focusRing}`}
+              >
+                <span className="min-w-0 truncate">{design.name || `Diseño ${designIndex + 1}`}</span>
+                <span className="shrink-0 text-[13px] font-normal text-white/70">
+                  {designStock(design)} uds
+                </span>
+              </summary>
+              {/* La tabla se desplaza dentro de su caja; la página no hace scroll horizontal. */}
+              <div className="overflow-x-auto border-t border-white/10">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="text-[11px] font-bold text-white/70">
+                      <th scope="col" className="sticky left-0 z-10 bg-theme-navy px-2.5 py-2">
+                        Color
+                      </th>
+                      {sizes.map((size) => (
+                        <th key={size} scope="col" className="px-1.5 py-2 text-center">
+                          {size}
+                        </th>
+                      ))}
+                      <th scope="col" className="px-2.5 py-2 text-right">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {design.colors.map((color) => (
+                      <tr key={color} className="border-t border-white/10">
+                        <th
+                          scope="row"
+                          className="sticky left-0 z-10 bg-theme-navy px-2.5 py-1.5 text-[13px] font-semibold"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="size-4 shrink-0 rounded-full border border-white/40"
+                              style={{ background: CATALOG_COLOR_HEX[color] }}
+                            />
+                            {color}
+                          </span>
+                        </th>
+                        {sizes.map((size) => {
+                          const units = design.stock[color]?.[size] ?? 0;
+                          return (
+                            <td key={size} className="px-1 py-1.5">
+                              <input
+                                aria-label={`Stock ${design.name || designIndex + 1}, ${color}, talla ${size}`}
+                                value={String(units)}
+                                inputMode="numeric"
+                                onChange={(event) => {
+                                  const digits = event.target.value.replace(/\D/g, "");
+                                  const value = Math.min(digits ? parseInt(digits, 10) : 0, MAX_STOCK);
+                                  setDraft((current) => ({
+                                    ...current,
+                                    designs: current.designs.map((d) =>
+                                      d.id === design.id
+                                        ? {
+                                            ...d,
+                                            stock: {
+                                              ...d.stock,
+                                              [color]: { ...d.stock[color], [size]: value },
+                                            },
+                                          }
+                                        : d,
+                                    ),
+                                  }));
+                                }}
+                                className={`h-9 w-14 rounded-lg border bg-black/30 px-1 text-center text-base font-extrabold ${focusRing} ${
+                                  units === 0
+                                    ? "border-theme-red/50 text-[#ff5a63]"
+                                    : "border-white/15 text-white"
+                                }`}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-2.5 py-1.5 text-right text-[13px] text-white/70">
+                          {colorStock(design, color)}
                         </td>
-                      );
-                    })}
-                    <td className="px-2.5 py-1.5 text-right text-[13px] text-white/70">
-                      {colorStock(draft, color)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-white/15 text-[13px] font-bold">
+                      <th
+                        scope="row"
+                        colSpan={sizes.length + 1}
+                        className="sticky left-0 z-10 bg-theme-navy px-2.5 py-2 text-left"
+                      >
+                        Total del diseño
+                      </th>
+                      <td className="px-2.5 py-2 text-right">{designStock(design)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </details>
+          ))}
           <p className="text-xs text-white/65">
-            Las tallas en 0 de cada color aparecen tachadas en la tienda al elegir ese color.
+            Las tallas en 0 de cada color aparecen tachadas en la tienda al elegir ese diseño y color.
           </p>
         </section>
       </div>

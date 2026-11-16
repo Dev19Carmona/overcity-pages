@@ -5,8 +5,7 @@ import {
   stockOf as productStockOf,
   type CatalogColor,
   type CatalogCurrency,
-  type CatalogImage,
-  type ProductStock,
+  type DesignStock,
 } from "@/lib/catalog-shared";
 import { MAX_CART_LINES, MAX_STOCK } from "@/lib/content-limits";
 
@@ -14,9 +13,18 @@ export const CART_KEY = "overcity:cart:v1";
 
 export type CartLine = {
   productId: string;
-  color: CatalogColor;
-  size: string; // una clave de product.stock[color]
-  qty: number; // entero 1..stock de esa combinación color + talla
+  designId: string; // id de un diseño del producto (SPEC 10)
+  color: CatalogColor; // un color de ese diseño
+  size: string; // una clave del stock de ese color
+  qty: number; // entero 1..stock de diseño + color + talla
+};
+
+export type CartDesign = {
+  id: string;
+  name: string;
+  image: string;
+  colors: CatalogColor[];
+  stock: DesignStock; // stock[color][talla]
 };
 
 // Resumen del producto que viaja al navegador (sin descripción).
@@ -24,9 +32,7 @@ export type CartProduct = {
   id: string;
   name: string;
   price: number | null;
-  colors: CatalogColor[];
-  images: CatalogImage[];
-  stock: ProductStock; // stock[color][talla]
+  designs: CartDesign[];
 };
 
 export type CartCatalog = {
@@ -37,13 +43,27 @@ export type CartCatalog = {
   brandName: string;
 };
 
-export function lineKey(line: Pick<CartLine, "productId" | "color" | "size">): string {
-  return `${line.productId}|${line.color}|${line.size}`;
+export function lineKey(line: Pick<CartLine, "productId" | "designId" | "color" | "size">): string {
+  return `${line.productId}|${line.designId}|${line.color}|${line.size}`;
 }
 
-// Tope de una línea: stock de esa combinación color + talla.
-export function lineStock(product: CartProduct, color: CatalogColor, size: string): number {
-  return Math.min(productStockOf(product, color, size), MAX_STOCK);
+export function findDesign(product: CartProduct, designId: string): CartDesign | undefined {
+  return product.designs.find((design) => design.id === designId);
+}
+
+// Tope de una línea: stock de esa combinación diseño + color + talla.
+export function lineStock(
+  product: CartProduct,
+  designId: string,
+  color: CatalogColor,
+  size: string,
+): number {
+  return Math.min(productStockOf(product, designId, color, size), MAX_STOCK);
+}
+
+function lineAvailable(product: CartProduct | undefined, line: CartLine): product is CartProduct {
+  const design = product ? findDesign(product, line.designId) : undefined;
+  return !!design && design.colors.includes(line.color);
 }
 
 export function readCart(): CartLine[] {
@@ -54,11 +74,13 @@ export function readCart(): CartLine[] {
     if (typeof parsed !== "object" || parsed === null) return [];
     const lines = (parsed as { lines?: unknown }).lines;
     if (!Array.isArray(lines)) return [];
+    // Las líneas del formato anterior (sin designId) se conservan aquí: reconcileCart las quita con el aviso.
     return lines.filter(
       (line): line is CartLine =>
         typeof line === "object" &&
         line !== null &&
         typeof line.productId === "string" &&
+        (line.designId === undefined || typeof line.designId === "string") &&
         CATALOG_COLORS.includes(line.color) &&
         typeof line.size === "string" &&
         Number.isInteger(line.qty) &&
@@ -87,8 +109,8 @@ export function reconcileCart(
   const merged = new Map<string, CartLine>();
   for (const line of lines) {
     const product = byId.get(line.productId);
-    if (!product || !product.colors.includes(line.color)) continue;
-    const stock = lineStock(product, line.color, line.size);
+    if (typeof line.designId !== "string" || !lineAvailable(product, line)) continue;
+    const stock = lineStock(product, line.designId, line.color, line.size);
     if (stock < 1) continue;
     const key = lineKey(line);
     const qty = Math.min((merged.get(key)?.qty ?? 0) + line.qty, stock);
@@ -106,11 +128,11 @@ export type CartResult = { lines: CartLine[]; error?: string };
 // Suma `line.qty` a la línea existente (sin pasar del stock) o crea una nueva.
 export function addLine(lines: CartLine[], line: CartLine, products: CartProduct[]): CartResult {
   const product = products.find((item) => item.id === line.productId);
-  if (!product || !product.colors.includes(line.color)) {
+  if (!lineAvailable(product, line)) {
     return { lines, error: "Este producto ya no está disponible." };
   }
-  const stock = lineStock(product, line.color, line.size);
-  if (stock < 1) return { lines, error: "Esa combinación de color y talla está agotada." };
+  const stock = lineStock(product, line.designId, line.color, line.size);
+  if (stock < 1) return { lines, error: "Esa combinación de diseño, color y talla está agotada." };
   const key = lineKey(line);
   const existing = lines.find((item) => lineKey(item) === key);
   if (!existing && lines.length >= MAX_CART_LINES) {
@@ -124,7 +146,7 @@ export function addLine(lines: CartLine[], line: CartLine, products: CartProduct
       : [...lines, next],
     error:
       existing && existing.qty + line.qty > stock
-        ? `Solo quedan ${stock} unidades de ese color y talla.`
+        ? `Solo quedan ${stock} unidades de ese diseño, color y talla.`
         : undefined,
   };
 }
@@ -138,7 +160,7 @@ export function setQty(
   return lines.map((line) => {
     if (lineKey(line) !== key) return line;
     const product = products.find((item) => item.id === line.productId);
-    const stock = product ? lineStock(product, line.color, line.size) : line.qty;
+    const stock = product ? lineStock(product, line.designId, line.color, line.size) : line.qty;
     return { ...line, qty: Math.max(1, Math.min(qty, stock)) };
   });
 }
@@ -160,9 +182,9 @@ export function cartSubtotal(lines: CartLine[], products: CartProduct[]): number
   return lines.reduce((sum, line) => sum + (lineTotal(line, products) ?? 0), 0);
 }
 
-// Foto del color elegido; si ese color no tiene fotos, la portada.
-export function lineImage(product: CartProduct, color: CatalogColor): CatalogImage | undefined {
-  return product.images.find((image) => image.color === color) ?? product.images[0];
+// Foto del diseño de la línea.
+export function lineImage(product: CartProduct, designId: string): string | undefined {
+  return findDesign(product, designId)?.image;
 }
 
 export function whatsappUrl(number: string, text: string): string {
@@ -179,8 +201,9 @@ export function buildOrderMessage(
     const product = products.find((item) => item.id === line.productId);
     if (!product) return [];
     const total = lineTotal(line, products);
+    const designName = findDesign(product, line.designId)?.name ?? "—";
     return [
-      `${index + 1}. ${product.name} — ${line.color}, ${line.size} × ${line.qty} — ${
+      `${index + 1}. ${product.name} — Diseño: ${designName} — ${line.color}, ${line.size} × ${line.qty} — ${
         total === null ? "Consultar" : formatPrice(total, currency)
       }`,
       `   ${origin}/catalogo/${product.id}`,
@@ -203,11 +226,12 @@ export function buildOrderMessage(
 
 export function buildInquiryMessage(
   product: Pick<CartProduct, "id" | "name">,
-  options: { color: CatalogColor | null; size: string | null },
+  options: { design: string | null; color: CatalogColor | null; size: string | null },
   brandName: string,
   origin: string,
 ): string {
   const parts = [`Hola ${brandName}, quiero preguntar por ${product.name}`];
+  if (options.design) parts.push(`Diseño: ${options.design}`);
   if (options.color) parts.push(`Color: ${options.color}`);
   if (options.size) parts.push(`Talla: ${options.size}`);
   parts.push(`${origin}/catalogo/${product.id}`);
