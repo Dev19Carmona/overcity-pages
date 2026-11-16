@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { saveCategories, type CatalogActionResult } from "@/app/admin/catalogo/actions";
+import { saveCategories, type ListResult } from "@/app/admin/catalogo/actions";
 import {
   ConfirmDialog,
   focusRing,
@@ -17,9 +17,8 @@ import {
 } from "@/app/admin/_components/ui";
 import {
   normalizeText,
-  type Catalog,
+  type CatalogList,
   type CatalogCategory,
-  coverImage,
 } from "@/lib/catalog-shared";
 import { MAX_CATEGORIES, MAX_CATEGORY_NAME } from "@/lib/content-limits";
 
@@ -28,7 +27,7 @@ type Pending =
   | { kind: "single-off"; category: CatalogCategory }
   | null;
 
-export default function CategoriesAdmin({ initial }: { initial: Catalog }) {
+export default function CategoriesAdmin({ initial }: { initial: CatalogList }) {
   const [catalog, setCatalog] = useState(initial);
   const [newName, setNewName] = useState("");
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -41,9 +40,9 @@ export default function CategoriesAdmin({ initial }: { initial: Catalog }) {
 
   function save(next: CatalogCategory[], okMessage: string, onOk?: () => void) {
     startTransition(async () => {
-      const result: CatalogActionResult = await saveCategories(next);
+      const result: ListResult = await saveCategories(next);
       if (result.ok) {
-        setCatalog(result.catalog);
+        setCatalog(result.list);
         onOk?.();
         show(okMessage);
       } else {
@@ -182,7 +181,7 @@ export default function CategoriesAdmin({ initial }: { initial: Catalog }) {
                   </button>
                 </span>
                 <Thumb
-                  image={products[0] ? coverImage(products[0]) : undefined}
+                  image={products[0]?.cover}
                   alt=""
                   size={44}
                   className="size-11 shrink-0 rounded-full border border-white/20"

@@ -28,8 +28,9 @@ import {
   resizeStock,
   sizesFor,
   stockTotal,
-  type Catalog,
   type CatalogCategory,
+  type CatalogColorDef,
+  type CatalogCurrency,
   type CatalogDesign,
   type CatalogProduct,
 } from "@/lib/catalog-shared";
@@ -67,16 +68,21 @@ function blankProduct(categories: CatalogCategory[]): CatalogProduct {
 }
 
 export default function ProductEditor({
-  catalog,
+  meta,
   product,
+  version: initialVersion,
 }: {
-  catalog: Catalog;
+  meta: { categories: CatalogCategory[]; colors: CatalogColorDef[]; currency: CatalogCurrency };
   product: CatalogProduct | null; // null = producto nuevo
+  version: number | null; // versión guardada al abrir la ficha; null = producto nuevo
 }) {
   const router = useRouter();
-  const [categories, setCategories] = useState(catalog.categories);
+  const catalog = meta;
+  const [categories, setCategories] = useState(meta.categories);
   const [saved, setSaved] = useState<CatalogProduct | null>(product);
-  const [draft, setDraft] = useState<CatalogProduct>(() => product ?? blankProduct(catalog.categories));
+  // Control optimista (SPEC 12): la versión con la que se abrió o se guardó por última vez la ficha.
+  const [version, setVersion] = useState<number | null>(initialVersion);
+  const [draft, setDraft] = useState<CatalogProduct>(() => product ?? blankProduct(meta.categories));
   const [uploading, setUploading] = useState(false);
   const [quickCategory, setQuickCategory] = useState<string | null>(null);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -119,7 +125,7 @@ export default function ProductEditor({
     startSaving(async () => {
       const result = await saveCategories([...categories, created]);
       if (result.ok) {
-        setCategories(result.catalog.categories);
+        setCategories(result.list.categories);
         setQuickCategory(null);
         changeCategoryTo(created);
         show(`Categoría «${name}» creada`);
@@ -148,15 +154,19 @@ export default function ProductEditor({
       names.add(normalizeText(name));
     }
     startSaving(async () => {
-      const result = await saveProduct({
-        ...draft,
-        name: draft.name.trim(),
-        designs: draft.designs.map((design) => ({ ...design, name: design.name.trim() })),
-      });
+      const result = await saveProduct(
+        {
+          ...draft,
+          name: draft.name.trim(),
+          designs: draft.designs.map((design) => ({ ...design, name: design.name.trim() })),
+        },
+        version,
+      );
       if (result.ok) {
-        const stored = result.catalog.products.find((p) => p.id === draft.id) ?? draft;
+        const stored = result.product;
         setSaved(stored);
         setDraft(stored);
+        setVersion(result.version);
         if (product === null) {
           window.history.replaceState(null, "", `/admin/catalogo/producto/${stored.id}`);
         }

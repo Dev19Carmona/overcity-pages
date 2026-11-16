@@ -5,8 +5,8 @@ import CartButton from "@/app/_components/cart-button";
 import CartDrawer from "@/app/_components/cart-drawer";
 import CartProvider from "@/app/_components/cart-provider";
 import NightScene from "@/app/_components/night-scene";
-import type { CartCatalog } from "@/lib/cart";
-import type { Catalog } from "@/lib/catalog-shared";
+import { toCartProduct, type CartShell } from "@/lib/cart";
+import type { CatalogList, CatalogProduct } from "@/lib/catalog-shared";
 import type { SiteContent } from "@/lib/content";
 
 const DEFAULT_LOGO = "/overcity/logo-overcity.png";
@@ -24,44 +24,31 @@ function navClass(active: boolean) {
   }`;
 }
 
-// Resumen del catálogo público que viaja al navegador para la bolsa (sin descripciones).
-function cartCatalog(catalog: Catalog, brandName: string): CartCatalog {
-  return {
-    products: catalog.products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      designs: product.designs.map((design) => ({
-        id: design.id,
-        name: design.name,
-        image: design.image,
-        colors: design.colors,
-        stock: design.stock,
-      })),
-    })),
-    colors: catalog.colors.map(({ name, hex }) => ({ name, hex })),
-    currency: catalog.currency,
-    whatsapp: catalog.whatsapp,
-    freeShippingFrom: catalog.freeShippingFrom,
-    brandName,
-  };
-}
-
 // Fondo y efectos de SiteContent más el encabezado fijo de la tienda (logo, marca, navegación y
 // bolsa) y el cajón de la bolsa (SPEC 08). Sin candado de admin.
 export default function StoreShell({
   content,
   catalog,
+  product,
   active,
   children,
 }: {
   content: SiteContent;
-  catalog: Catalog;
+  catalog: CatalogList;
+  // Producto de la página abierta (SPEC 12): permite agregarlo a la bolsa sin pedirlo al servidor.
+  product?: CatalogProduct;
   active: "catalog" | null;
   children: ReactNode;
 }) {
+  const shell: CartShell = {
+    colors: catalog.colors.map(({ name, hex }) => ({ name, hex })),
+    currency: catalog.currency,
+    whatsapp: catalog.whatsapp,
+    freeShippingFrom: catalog.freeShippingFrom,
+    brandName: content.brandName,
+  };
   return (
-    <CartProvider catalog={cartCatalog(catalog, content.brandName)}>
+    <CartProvider shell={shell} pageProducts={product ? [toCartProduct(product)] : undefined}>
       <NightScene background={content.background} effectsEnabled={content.effectsEnabled} />
       <div className="relative z-10 flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-border-soft bg-theme-navy/75 backdrop-blur-[14px]">
@@ -80,9 +67,6 @@ export default function StoreShell({
                 priority
                 className="h-8 w-auto max-w-[110px] shrink-0 object-contain drop-shadow-[0_0_12px_rgba(216,26,33,0.48)]"
               />
-              <span className="hidden truncate text-[17px] font-extrabold tracking-[.04em] min-[420px]:inline">
-                {content.brandName}
-              </span>
             </Link>
             <nav aria-label="Tienda" className="ml-[clamp(0px,2vw,24px)] flex gap-1">
               <Link href="/" className={navClass(false)}>

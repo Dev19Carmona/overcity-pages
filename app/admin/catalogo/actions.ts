@@ -1,79 +1,62 @@
 "use server";
 
-import { del } from "@vercel/blob";
 import { updateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth";
 import {
-  CATALOG_KEY,
-  catalogImageUrls,
-  getStoredCatalog,
-  validateCatalog,
-  type Catalog,
+  getAdminCatalogList,
+  getAdminColors,
+  removeProduct,
+  writeCategories,
+  writeColors,
+  writeProduct,
+  writeProductMove,
+  writeProductVisible,
+  writeSettings,
+  type CatalogSettingsInput,
+  type WriteResult,
 } from "@/lib/catalog";
 import {
-  colorUsage,
   normalizeWhatsapp,
-  resizeStock,
-  sizesFor,
   type CatalogCategory,
   type CatalogColorDef,
   type CatalogCurrency,
+  type CatalogList,
+  type CatalogProduct,
+  type ColorUsageMap,
 } from "@/lib/catalog-shared";
-import { isBlobUrl } from "@/lib/content";
-import { getRedis } from "@/lib/redis";
 
-export type CatalogActionResult =
-  | { ok: true; catalog: Catalog }
-  | { ok: false; error: string };
+type Fail = { ok: false; error: string };
 
-type Mutation = (current: Catalog) => unknown | string;
+// Lista ligera del panel después de un cambio (SPEC 12: ya no se devuelve el catálogo completo).
+export type ListResult = { ok: true; list: CatalogList } | Fail;
+export type ProductResult = { ok: true; version: number; product: CatalogProduct } | Fail;
+export type ColorsResult = { ok: true; colors: CatalogColorDef[]; usage: ColorUsageMap } | Fail;
+export type SettingsResult = { ok: true; settings: CatalogSettingsInput } | Fail;
 
-// Lee el catálogo guardado, aplica el cambio, valida y escribe en Redis. Después borra de Blob
-// las imágenes que quedaron sin uso (primero Redis, para no dejar enlaces rotos).
-// `mutate` devuelve el catálogo nuevo o un texto con el motivo del rechazo.
-async function apply(mutate: Mutation): Promise<CatalogActionResult> {
+// Cada acción exige sesión, valida y escribe mediante una RPC transaccional; si sale bien, las fotos
+// que ya nadie usa se borran de Storage (dentro de `lib/catalog`) y se invalida la caché del catálogo.
+async function withSession<T>(fn: () => Promise<T | Fail>): Promise<T | Fail> {
   if (!(await isAdmin())) {
     return { ok: false, error: "Tu sesión expiró. Vuelve a entrar." };
   }
-
-  const redis = getRedis();
-  if (!redis) {
-    return { ok: false, error: "El almacenamiento no está configurado." };
-  }
-
-  let previous: Catalog;
   try {
-    previous = await getStoredCatalog();
-  } catch {
-    return { ok: false, error: "No se pudo leer el catálogo. Intenta de nuevo." };
+    return await fn();
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error && error.message ? error.message : "No se pudo guardar. Intenta de nuevo.",
+    };
   }
+}
 
-  const next = mutate(previous);
-  if (typeof next === "string") return { ok: false, error: next };
+function fail(result: WriteResult): Fail {
+  return { ok: false, error: result.ok ? "No se pudo guardar. Intenta de nuevo." : result.error };
+}
 
-  const result = validateCatalog(next);
-  if (!result.ok) return result;
-
-  try {
-    await redis.set(CATALOG_KEY, result.catalog);
-  } catch {
-    return { ok: false, error: "No se pudo guardar. Intenta de nuevo." };
-  }
-
-  const stillUsed = catalogImageUrls(result.catalog);
-  const stale = [...catalogImageUrls(previous)].filter(
-    (url) => !stillUsed.has(url) && isBlobUrl(url),
-  );
-  if (stale.length > 0) {
-    try {
-      await del(stale);
-    } catch {
-      // Un archivo huérfano no debe romper el guardado.
-    }
-  }
-
+async function listAfter(write: WriteResult): Promise<ListResult> {
+  if (!write.ok) return fail(write);
   updateTag("catalog");
-  return { ok: true, catalog: result.catalog };
+  return { ok: true, list: await getAdminCatalogList() };
 }
 
 export async function saveCatalogSettings(input: {
@@ -81,7 +64,7 @@ export async function saveCatalogSettings(input: {
   currency: CatalogCurrency;
   whatsapp: string;
   freeShippingFrom: number | null;
-}): Promise<CatalogActionResult> {
+}): Promise<SettingsResult> {
   const whatsapp = typeof input.whatsapp === "string" ? normalizeWhatsapp(input.whatsapp) : null;
   if (whatsapp === null) {
     return {
@@ -89,105 +72,60 @@ export async function saveCatalogSettings(input: {
       error: "El número de WhatsApp debe tener entre 8 y 15 dígitos, con código de país.",
     };
   }
-  return apply((current) => ({
-    ...current,
-    title: input.title,
-    currency: input.currency,
-    whatsapp,
-    freeShippingFrom: input.freeShippingFrom,
-  }));
+  return withSession(async () => {
+    const settings = { ...input, whatsapp };
+    const write = await writeSettings(settings);
+    if (!write.ok) return fail(write);
+    updateTag("catalog");
+    return { ok: true as const, settings: { ...settings, title: settings.title.trim() } };
+  });
 }
 
 // Reemplaza la lista de categorías (crear, renombrar, reordenar, talla única, quitar).
 // Los productos de una categoría quitada quedan sin categoría; si cambian sus tallas, el stock
-// se ajusta por diseño y color (talla única = suma de las tallas de ese color; de única a varias tallas
-// empieza en 0).
-export async function saveCategories(
-  categories: CatalogCategory[],
-): Promise<CatalogActionResult> {
-  return apply((current) => {
-    if (!Array.isArray(categories)) return "Las categorías deben ser una lista.";
-    const byId = new Map(categories.map((category) => [category.id, category]));
-    const products = current.products.map((product) => {
-      const categoryId =
-        product.categoryId !== null && byId.has(product.categoryId) ? product.categoryId : null;
-      const sizes = sizesFor(categoryId === null ? null : byId.get(categoryId));
-      const designs = product.designs.map((design) => ({
-        ...design,
-        stock: resizeStock(design.stock, design.colors, sizes),
-      }));
-      return { ...product, categoryId, designs };
-    });
-    return { ...current, categories, products };
-  });
+// se ajusta en la misma transacción (talla única = suma de las tallas de ese color; de única a
+// varias tallas empieza en 0).
+export async function saveCategories(categories: CatalogCategory[]): Promise<ListResult> {
+  return withSession(async () => listAfter(await writeCategories(categories)));
 }
 
 // Reemplaza la lista de colores (crear, hex, orden, ocultar, quitar). El nombre es el identificador:
-// no se puede quitar un color que algún diseño usa (el servidor recalcula el uso). La validación
-// del catálogo completo revisa nombres, hex y el tope.
-export async function saveColors(colors: CatalogColorDef[]): Promise<CatalogActionResult> {
-  return apply((current) => {
-    if (!Array.isArray(colors)) return "Los colores deben ser una lista.";
-    const kept = new Set(colors.map((color) => (color as { name?: unknown })?.name));
-    for (const old of current.colors) {
-      if (kept.has(old.name)) continue;
-      const { designs, products } = colorUsage(current, old.name);
-      if (designs > 0) {
-        return `No se puede eliminar «${old.name}»: está en ${designs} ${
-          designs === 1 ? "diseño" : "diseños"
-        } de ${products} ${products === 1 ? "producto" : "productos"}. Puedes ocultarlo.`;
-      }
-    }
-    return { ...current, colors };
+// no se puede quitar un color que algún diseño usa (la base lo impide y el mensaje trae el conteo).
+export async function saveColors(colors: CatalogColorDef[]): Promise<ColorsResult> {
+  return withSession(async () => {
+    const write = await writeColors(colors);
+    if (!write.ok) return fail(write);
+    updateTag("catalog");
+    return { ok: true as const, ...(await getAdminColors()) };
   });
 }
 
-// Crea o actualiza un producto (por id). Un producto nuevo va al final de la lista.
-export async function saveProduct(product: unknown): Promise<CatalogActionResult> {
-  return apply((current) => {
-    const id =
-      typeof product === "object" && product !== null && "id" in product
-        ? (product as { id: unknown }).id
-        : null;
-    if (typeof id !== "string" || !id) return "El producto no tiene id.";
-    const exists = current.products.some((item) => item.id === id);
-    const products = exists
-      ? current.products.map((item) => (item.id === id ? product : item))
-      : [...current.products, product];
-    return { ...current, products };
+// Crea (expectedVersion null) o actualiza un producto. Si cambió desde que se abrió la ficha,
+// se rechaza con el mensaje de conflicto y no se escribe nada.
+export async function saveProduct(
+  product: unknown,
+  expectedVersion: number | null,
+): Promise<ProductResult> {
+  if (expectedVersion !== null && !Number.isInteger(expectedVersion)) {
+    return { ok: false, error: "Versión del producto inválida." };
+  }
+  return withSession(async () => {
+    const write = await writeProduct(product, expectedVersion);
+    if (!write.ok) return fail(write);
+    if (!write.product || write.version === undefined) return fail(write);
+    updateTag("catalog");
+    return { ok: true as const, version: write.version, product: write.product };
   });
 }
 
-export async function deleteProduct(id: string): Promise<CatalogActionResult> {
-  return apply((current) => {
-    if (!current.products.some((product) => product.id === id)) return "El producto no existe.";
-    return { ...current, products: current.products.filter((product) => product.id !== id) };
-  });
+export async function deleteProduct(id: string): Promise<ListResult> {
+  return withSession(async () => listAfter(await removeProduct(id)));
 }
 
-export async function setProductVisible(
-  id: string,
-  visible: boolean,
-): Promise<CatalogActionResult> {
-  return apply((current) => {
-    if (!current.products.some((product) => product.id === id)) return "El producto no existe.";
-    return {
-      ...current,
-      products: current.products.map((product) =>
-        product.id === id ? { ...product, visible } : product,
-      ),
-    };
-  });
+export async function setProductVisible(id: string, visible: boolean): Promise<ListResult> {
+  return withSession(async () => listAfter(await writeProductVisible(id, visible)));
 }
 
-export async function moveProduct(id: string, offset: -1 | 1): Promise<CatalogActionResult> {
-  return apply((current) => {
-    const index = current.products.findIndex((product) => product.id === id);
-    if (index < 0) return "El producto no existe.";
-    const target = index + offset;
-    if (target < 0 || target >= current.products.length) return current;
-    const products = [...current.products];
-    [products[index], products[target]] = [products[target], products[index]];
-    return { ...current, products };
-  });
+export async function moveProduct(id: string, offset: -1 | 1): Promise<ListResult> {
+  return withSession(async () => listAfter(await writeProductMove(id, offset)));
 }

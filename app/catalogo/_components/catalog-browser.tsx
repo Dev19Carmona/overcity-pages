@@ -8,12 +8,10 @@ import {
   colorHex,
   formatPrice,
   normalizeText,
-  productColors,
-  stockTotal,
-  type Catalog,
   type CatalogColorDef,
   type CatalogCurrency,
-  type CatalogProduct,
+  type CatalogList,
+  type ProductCard as ProductCardData,
 } from "@/lib/catalog-shared";
 
 const focusRing =
@@ -38,14 +36,12 @@ function ProductCard({
   currency,
   palette,
 }: {
-  product: CatalogProduct;
+  product: ProductCardData;
   currency: CatalogCurrency;
   palette: CatalogColorDef[];
 }) {
-  const cover = product.designs[0];
-  const second = product.designs[1];
-  const colors = productColors(product, palette);
-  const soldOut = stockTotal(product) === 0;
+  const { colors } = product;
+  const soldOut = product.stockTotal === 0;
   return (
     <Link
       href={`/catalogo/${product.id}`}
@@ -54,20 +50,20 @@ function ProductCard({
       <div
         className="relative aspect-[4/5] w-full overflow-hidden"
         style={{
-          background: `linear-gradient(160deg, ${colorHex(palette, cover.colors[0])} 0%, #0a1c29 100%)`,
+          background: `linear-gradient(160deg, ${colorHex(palette, product.coverColor ?? "")} 0%, #0a1c29 100%)`,
         }}
       >
         <Image
-          src={cover.image}
+          src={product.cover}
           alt={product.name}
           width={480}
           height={600}
           unoptimized
           className="absolute inset-0 size-full object-cover"
         />
-        {second && (
+        {product.hoverImage && (
           <Image
-            src={second.image}
+            src={product.hoverImage}
             alt=""
             width={480}
             height={600}
@@ -82,7 +78,7 @@ function ProductCard({
           </span>
         )}
         <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px]">
-          {product.designs.length} {product.designs.length === 1 ? "diseño" : "diseños"}
+          {product.designCount} {product.designCount === 1 ? "diseño" : "diseños"}
         </span>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5 p-3">
@@ -111,7 +107,7 @@ function Browser({
   catalog,
   initialCategory,
 }: {
-  catalog: Catalog;
+  catalog: CatalogList;
   initialCategory: string | null;
 }) {
   const [query, setQuery] = useState("");
@@ -243,13 +239,13 @@ function Browser({
 }
 
 // Lee ?categoria=<id> (viene de los botones de la home); con otro valor se reinicia el filtro.
-function WithParams({ catalog }: { catalog: Catalog }) {
+function WithParams({ catalog }: { catalog: CatalogList }) {
   const param = useSearchParams().get("categoria");
   const valid = param !== null && catalog.categories.some((c) => c.id === param) ? param : null;
   return <Browser key={valid ?? ""} catalog={catalog} initialCategory={valid} />;
 }
 
-export default function CatalogBrowser({ catalog }: { catalog: Catalog }) {
+export default function CatalogBrowser({ catalog }: { catalog: CatalogList }) {
   return (
     // El respaldo ya es la vista completa (sin filtro), así el HTML inicial trae los productos.
     <Suspense fallback={<Browser catalog={catalog} initialCategory={null} />}>

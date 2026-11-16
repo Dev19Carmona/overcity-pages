@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/app/catalogo/[id]/_components/product-detail";
 import StoreShell, { STORE_WIDTH } from "@/app/_components/store-shell";
-import { getPublicCatalog } from "@/lib/catalog";
+import { getPublicCatalogList, getPublicProduct } from "@/lib/catalog";
 import { getPublicContent } from "@/lib/content";
 
 const focusRing =
@@ -17,14 +17,13 @@ export const instant = false;
 // Con cacheComponents hace falta al menos un parámetro de muestra; sin productos se usa un id
 // que no existe y responde 404.
 export async function generateStaticParams() {
-  const { products } = await getPublicCatalog();
+  const { products } = await getPublicCatalogList();
   const ids = products.map((product) => ({ id: product.id }));
   return ids.length > 0 ? ids : [{ id: "sin-productos" }];
 }
 
 async function findProduct(id: string) {
-  const catalog = await getPublicCatalog();
-  const product = catalog.products.find((item) => item.id === id);
+  const [product, catalog] = await Promise.all([getPublicProduct(id), getPublicCatalogList()]);
   return product ? { product, catalog } : null;
 }
 
@@ -45,7 +44,7 @@ export default async function ProductPage({ params }: PageProps<"/catalogo/[id]"
   const category = catalog.categories.find((item) => item.id === product.categoryId);
 
   return (
-    <StoreShell content={content} catalog={catalog} active="catalog">
+    <StoreShell content={content} catalog={catalog} product={product} active="catalog">
       <main className={`${STORE_WIDTH} flex flex-1 flex-col gap-[18px] pb-14 pt-[clamp(16px,3vw,32px)]`}>
         <div className="flex items-center gap-2 text-[13px] text-white/75">
           <Link

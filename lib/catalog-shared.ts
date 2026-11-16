@@ -71,6 +71,49 @@ export type Catalog = {
   products: CatalogProduct[]; // el orden del arreglo es el orden en pantalla ("Destacados")
 };
 
+// Lecturas ligeras (SPEC 12): tarjeta de la tienda y fila de la lista del panel, sin descripción
+// ni matriz de stock.
+export type ProductCard = {
+  id: string;
+  name: string;
+  price: number | null;
+  categoryId: string | null;
+  cover: string; // URL pública de la foto del primer diseño
+  coverColor: CatalogColor | null; // primer color del primer diseño (fondo de la tarjeta)
+  hoverImage: string | null; // foto del segundo diseño, si existe
+  designCount: number;
+  colors: CatalogColor[]; // unión de colores de los diseños, en el orden de la lista
+  stockTotal: number; // calculado en la consulta
+  visible: boolean;
+};
+
+export type CatalogList = {
+  title: string;
+  currency: CatalogCurrency;
+  whatsapp: string;
+  freeShippingFrom: number | null;
+  categories: CatalogCategory[];
+  colors: CatalogColorDef[];
+  products: ProductCard[];
+};
+
+// Producto completo con la versión guardada (control optimista de la ficha del panel).
+export type VersionedProduct = { product: CatalogProduct; version: number };
+
+export type ColorUsageMap = Record<string, { designs: number; products: number }>;
+
+// Orden de las tallas (jsonb no conserva el orden de las claves).
+const SIZE_ORDER: readonly string[] = [...CATALOG_SIZES, ONE_SIZE];
+
+// Ordena las claves de una fila de stock como XS, S, M, L, XL (o Única).
+export function sortSizes<T>(row: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(row).sort(
+      ([a], [b]) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b),
+    ),
+  );
+}
+
 // Tallas de una categoría: "Única" si es de talla única; sin categoría, XS a XL.
 export function sizesFor(category: Pick<CatalogCategory, "oneSize"> | null | undefined): string[] {
   return category?.oneSize ? [ONE_SIZE] : [...CATALOG_SIZES];

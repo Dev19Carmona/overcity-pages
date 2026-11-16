@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import ColorsAdmin from "@/app/admin/catalogo/_components/colors-admin";
-import { loadAdminCatalog } from "@/app/admin/_lib";
+import { loadAdminColors } from "@/app/admin/_lib";
 
 async function ColorsData() {
-  const catalog = await loadAdminCatalog();
-  if (!catalog) return null;
-  return <ColorsAdmin initial={catalog} />;
+  const data = await loadAdminColors();
+  if (!data) return null;
+  return <ColorsAdmin initial={data} />;
 }
 
 export default function AdminColorsPage() {

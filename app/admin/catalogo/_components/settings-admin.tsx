@@ -14,12 +14,12 @@ import {
   CATALOG_CURRENCIES,
   formatPrice,
   normalizeWhatsapp,
-  type Catalog,
   type CatalogCurrency,
 } from "@/lib/catalog-shared";
+import type { CatalogSettingsInput } from "@/lib/catalog-validate";
 import { MAX_PRICE, MAX_TITLE } from "@/lib/content-limits";
 
-export default function SettingsAdmin({ initial }: { initial: Catalog }) {
+export default function SettingsAdmin({ initial }: { initial: CatalogSettingsInput }) {
   const [saved, setSaved] = useState({
     title: initial.title,
     currency: initial.currency,
@@ -56,7 +56,7 @@ export default function SettingsAdmin({ initial }: { initial: Catalog }) {
         freeShippingFrom: freeValue,
       });
       if (result.ok) {
-        const c = result.catalog;
+        const c = result.settings;
         setSaved({
           title: c.title,
           currency: c.currency,

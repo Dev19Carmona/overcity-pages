@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import CatalogBrowser from "@/app/catalogo/_components/catalog-browser";
 import StoreShell, { STORE_WIDTH } from "@/app/_components/store-shell";
-import { getPublicCatalog } from "@/lib/catalog";
+import { getPublicCatalogList } from "@/lib/catalog";
 import { getPublicContent } from "@/lib/content";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const catalog = await getPublicCatalog();
+  const catalog = await getPublicCatalogList();
   return { title: `${catalog.title} · OverCity` };
 }
 
 export default async function CatalogPage() {
-  const [catalog, content] = await Promise.all([getPublicCatalog(), getPublicContent()]);
+  const [catalog, content] = await Promise.all([getPublicCatalogList(), getPublicContent()]);
 
   return (
     <StoreShell content={content} catalog={catalog} active="catalog">
