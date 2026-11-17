@@ -1,12 +1,33 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useCart } from "@/app/_components/cart-provider";
 
 // Botón de bolsa del encabezado de la tienda: icono y contador de unidades (oculto en 0).
 export default function CartButton() {
   const { count, openCart } = useCart();
+  const ref = useRef<HTMLButtonElement>(null);
+  const previous = useRef(count);
+
+  // Pequeño "salto" del botón cuando suben las unidades (llega lo que voló desde el producto).
+  useEffect(() => {
+    if (count > previous.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      ref.current?.animate(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(1.25)", boxShadow: "0 0 22px rgba(216,26,33,.8)" },
+          { transform: "scale(1)" },
+        ],
+        { duration: 400, delay: 950, easing: "ease-out" },
+      );
+    }
+    previous.current = count;
+  }, [count]);
+
   return (
     <button
+      ref={ref}
+      data-cart-button
       type="button"
       onClick={openCart}
       aria-label={

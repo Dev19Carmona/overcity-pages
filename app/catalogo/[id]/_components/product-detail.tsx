@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useCart } from "@/app/_components/cart-provider";
 import { buildInquiryMessage, whatsappUrl } from "@/lib/cart";
 import {
@@ -18,6 +18,48 @@ import {
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
+
+// Aviso flotante ("Se agregó …") que sale del botón y viaja hasta el botón de la bolsa del
+// encabezado (`data-cart-button`). Con movimiento reducido no vuela: solo queda el aviso para
+// lectores de pantalla y el contador de la bolsa.
+function flyToCart(from: HTMLElement, image: string, text: string) {
+  const target = document.querySelector<HTMLElement>("[data-cart-button]");
+  if (!target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const a = from.getBoundingClientRect();
+  const b = target.getBoundingClientRect();
+  const chip = document.createElement("div");
+  chip.setAttribute("aria-hidden", "true");
+  chip.style.cssText =
+    "position:fixed;z-index:60;pointer-events:none;display:flex;align-items:center;gap:8px;max-width:min(320px,86vw);padding:6px 14px 6px 6px;border-radius:9999px;border:1px solid rgba(216,26,33,.7);background:rgba(10,28,41,.92);color:#fff;font:600 13px Inter,sans-serif;box-shadow:0 0 18px rgba(216,26,33,.5);transform-origin:center";
+  const img = document.createElement("img");
+  img.src = image;
+  img.alt = "";
+  img.style.cssText = "width:32px;height:40px;border-radius:8px;object-fit:cover;flex:none";
+  const label = document.createElement("span");
+  label.textContent = text;
+  label.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+  chip.append(img, label);
+  document.body.append(chip);
+  const w = chip.offsetWidth;
+  const h = chip.offsetHeight;
+  const startX = Math.max(8, Math.min(a.left + a.width / 2 - w / 2, window.innerWidth - w - 8));
+  const startY = a.top - h - 8;
+  const endX = b.left + b.width / 2 - w / 2;
+  const endY = b.top + b.height / 2 - h / 2;
+  const animation = chip.animate(
+    [
+      { transform: `translate(${startX}px,${startY + 12}px) scale(.9)`, opacity: 0, offset: 0 },
+      { transform: `translate(${startX}px,${startY}px) scale(1)`, opacity: 1, offset: 0.2 },
+      { transform: `translate(${startX}px,${startY}px) scale(1)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(${endX}px,${endY}px) scale(.15)`, opacity: 0.2, offset: 1 },
+    ],
+    { duration: 1100, easing: "cubic-bezier(.5,0,.3,1)", fill: "forwards" },
+  );
+  chip.style.left = "0";
+  chip.style.top = "0";
+  animation.onfinish = () => chip.remove();
+  animation.oncancel = () => chip.remove();
+}
 
 // Primer color con stock de un diseño; si ninguno tiene, el primero.
 function firstColor(design: CatalogDesign): CatalogColor {
@@ -45,7 +87,9 @@ export default function ProductDetail({
   const color = design.colors.includes(colorChoice) ? colorChoice : firstColor(design);
   const [size, setSize] = useState<string | null>(null);
   const [wantedQty, setWantedQty] = useState(1);
-  const { add, openCart, catalog } = useCart();
+  const [addedCount, setAddedCount] = useState(0);
+  const [addedMessage, setAddedMessage] = useState("");
+  const { add, catalog } = useCart();
 
   // Tallas del producto (las mismas en todos los diseños y colores) y existencia de diseño + color.
   const sizes = Object.keys(design.stock[design.colors[0]] ?? {});
@@ -65,15 +109,23 @@ export default function ProductDetail({
   const addLabel = soldOut
     ? "Agotado"
     : !size
-      ? "Elige una talla"
-      : product.price === null
-        ? "Agregar a la bolsa"
-        : `Agregar a la bolsa · ${formatPrice(product.price * qty, currency)}`;
+      ? addedCount > 0
+        ? "Elige talla para agregar otro"
+        : "Elige una talla"
+      : (addedCount > 0 ? "Agregar otro producto" : "Agregar a la bolsa") +
+        (product.price === null ? "" : ` · ${formatPrice(product.price * qty, currency)}`);
 
-  function addToCart() {
+  function addToCart(event: MouseEvent<HTMLButtonElement>) {
     if (!canAdd || !size) return;
-    add({ productId: product.id, designId: design.id, color, size, qty });
-    openCart();
+    const error = add({ productId: product.id, designId: design.id, color, size, qty });
+    if (error) return;
+    const label = `${qty > 1 ? `${qty} × ` : ""}${product.name} (${design.name}, ${color}, ${size})`;
+    setAddedMessage(`Se agregó ${label} a la bolsa`);
+    setAddedCount((n) => n + 1);
+    flyToCart(event.currentTarget, design.image, `Se agregó ${label}`);
+    // Vuelve a dejar elegir: talla y cantidad se reinician para sumar otro producto.
+    setSize(null);
+    setWantedQty(1);
   }
 
   function ask() {
@@ -267,6 +319,9 @@ export default function ProductDetail({
               {addLabel}
             </button>
           </div>
+          <p role="status" className="sr-only">
+            {addedMessage}
+          </p>
           {catalog.whatsapp !== "" && (
             <button
               type="button"
