@@ -1,11 +1,12 @@
 import { Suspense } from "react";
+import NoPermission from "@/app/admin/_components/no-permission";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import ProductsAdmin from "@/app/admin/catalogo/_components/products-admin";
 import { loadAdminList } from "@/app/admin/_lib";
 
 async function ProductsData({ searchParams }: { searchParams: PageProps<"/admin/catalogo">["searchParams"] }) {
   const catalog = await loadAdminList();
-  if (!catalog) return null;
+  if (!catalog) return <NoPermission />;
   const { categoria } = await searchParams;
   const initialCategory =
     typeof categoria === "string" && catalog.categories.some((c) => c.id === categoria)

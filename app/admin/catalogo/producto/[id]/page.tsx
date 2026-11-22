@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import NoPermission from "@/app/admin/_components/no-permission";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import ProductEditor from "@/app/admin/catalogo/_components/product-editor";
 import { loadAdminEditor } from "@/app/admin/_lib";
@@ -12,7 +13,7 @@ async function ProductData({
 }) {
   const { id } = await params;
   const data = await loadAdminEditor(id);
-  if (!data) return null;
+  if (!data) return <NoPermission />;
   const { meta, entry, isNew } = data;
 
   if (isNew) {

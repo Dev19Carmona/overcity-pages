@@ -2,50 +2,62 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Permission } from "@/lib/permissions";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
 
-const ITEMS = [
-  { href: "/admin", label: "Página de links", group: "Sitio", match: (p: string) => p === "/admin" },
+const ITEMS: {
+  href: string;
+  label: string;
+  group: string;
+  permission: Permission;
+  match: (p: string) => boolean;
+}[] = [
+  { href: "/admin", label: "Página de links", group: "Sitio", permission: "links.contenido.editar", match: (p: string) => p === "/admin" },
   {
     href: "/admin/catalogo",
     label: "Productos",
     group: "Catálogo",
+    permission: "catalogo.productos.editar",
     match: (p: string) => p === "/admin/catalogo" || p.startsWith("/admin/catalogo/producto"),
   },
   {
     href: "/admin/catalogo/categorias",
     label: "Categorías",
     group: "Catálogo",
+    permission: "catalogo.categorias.editar",
     match: (p: string) => p.startsWith("/admin/catalogo/categorias"),
   },
   {
     href: "/admin/catalogo/colores",
     label: "Colores",
     group: "Catálogo",
+    permission: "catalogo.colores.editar",
     match: (p: string) => p.startsWith("/admin/catalogo/colores"),
   },
   {
     href: "/admin/catalogo/ajustes",
     label: "Ajustes del catálogo",
     group: "Catálogo",
+    permission: "catalogo.ajustes.editar",
     match: (p: string) => p.startsWith("/admin/catalogo/ajustes"),
   },
 ];
 
 // Navegación del panel: columna a la izquierda en escritorio (con títulos de grupo),
-// fila con scroll interno en móvil.
-export default function AdminNav() {
+// fila con scroll interno en móvil. Solo muestra las secciones que el usuario puede abrir.
+export default function AdminNav({ permissions }: { permissions: Permission[] }) {
   const pathname = usePathname();
+  const items = ITEMS.filter((item) => permissions.includes(item.permission));
   return (
     <nav
       aria-label="Secciones del panel"
       className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] min-[900px]:flex-col min-[900px]:overflow-visible"
     >
-      {ITEMS.map((item, index) => {
+      {items.map((item, index) => {
         const active = item.match(pathname);
-        const newGroup = index === 0 || ITEMS[index - 1].group !== item.group;
+        const newGroup = index === 0 || items[index - 1].group !== item.group;
         return (
           <div key={item.href} className="contents">
             {newGroup && (

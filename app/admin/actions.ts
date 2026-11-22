@@ -3,7 +3,7 @@
 import { del } from "@vercel/blob";
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { isAdmin, login, logout } from "@/lib/auth";
+import { logout, requirePermission } from "@/lib/auth";
 import {
   CONTENT_KEY,
   getStoredContent,
@@ -13,8 +13,6 @@ import {
   type SiteContent,
 } from "@/lib/content";
 import { getRedis } from "@/lib/redis";
-
-export type LoginState = { error: string | null };
 
 export type SaveResult =
   | { ok: true; content: SiteContent }
@@ -39,9 +37,8 @@ async function deleteBlobs(urls: (string | null)[]) {
 }
 
 export async function saveContent(input: unknown): Promise<SaveResult> {
-  if (!(await isAdmin())) {
-    return { ok: false, error: "Tu sesión expiró. Vuelve a entrar." };
-  }
+  const auth = await requirePermission("links.contenido.editar");
+  if (!auth.ok) return { ok: false, error: auth.error };
 
   const result = validateContent(input);
   if (!result.ok) return result;
@@ -70,21 +67,6 @@ export async function saveContent(input: unknown): Promise<SaveResult> {
 
   updateTag("content");
   return { ok: true, content: result.content };
-}
-
-export async function loginAction(
-  _prev: LoginState,
-  formData: FormData,
-): Promise<LoginState> {
-  const password = formData.get("password");
-  if (typeof password !== "string" || !password) {
-    return { error: "Escribe la clave." };
-  }
-
-  const result = await login(password);
-  if (!result.ok) return { error: result.error };
-
-  redirect("/admin");
 }
 
 export async function logoutAction(): Promise<void> {
