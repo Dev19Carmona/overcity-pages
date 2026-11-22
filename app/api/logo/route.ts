@@ -1,6 +1,6 @@
 import { del, put } from "@vercel/blob";
 import { revalidateTag } from "next/cache";
-import { isAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { replaceLogoUrl } from "@/lib/content";
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -37,7 +37,8 @@ async function deleteBlob(url: string | null) {
 }
 
 export async function POST(request: Request) {
-  if (!(await isAdmin())) return error("Tu sesión expiró. Vuelve a entrar.", 401);
+  const auth = await requirePermission("links.contenido.editar");
+  if (!auth.ok) return error(auth.error, auth.status);
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return error("El almacenamiento de imágenes no está configurado.", 500);
   }
@@ -74,7 +75,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  if (!(await isAdmin())) return error("Tu sesión expiró. Vuelve a entrar.", 401);
+  const auth = await requirePermission("links.contenido.editar");
+  if (!auth.ok) return error(auth.error, auth.status);
 
   let previous: string | null;
   try {

@@ -5,8 +5,9 @@ import { Suspense, type ReactNode } from "react";
 import NightScene from "@/app/_components/night-scene";
 import { logoutAction } from "@/app/admin/actions";
 import AdminNav from "@/app/admin/_components/admin-nav";
-import LoginForm from "@/app/admin/_components/login-form";
-import { isAdmin } from "@/lib/auth";
+import LoginScreen from "@/app/admin/_components/login-screen";
+import NoPermission from "@/app/admin/_components/no-permission";
+import { getSession, hasAnyAdminPermission } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Administración · OverCity",
@@ -19,11 +20,19 @@ const sideLink = `flex shrink-0 items-center gap-2 rounded-xl border border-whit
 
 // Todo /admin: sesión obligatoria y panel con barra lateral (escritorio) o superior (móvil).
 async function Gate({ children }: { children: ReactNode }) {
-  if (!(await isAdmin())) {
+  const session = await getSession();
+  if (!session) {
     return (
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight">Administración</h1>
-        <LoginForm />
+        <LoginScreen />
+      </main>
+    );
+  }
+  if (!hasAnyAdminPermission(session)) {
+    return (
+      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-4 py-16">
+        <NoPermission />
       </main>
     );
   }
@@ -46,7 +55,7 @@ async function Gate({ children }: { children: ReactNode }) {
             <span className="text-[11px] text-white/65">Administración</span>
           </span>
         </div>
-        <AdminNav />
+        <AdminNav permissions={session.permissions} />
         <div className="flex shrink-0 gap-2 min-[900px]:flex-col">
           <Link href="/" className={sideLink}>
             <span aria-hidden="true">↗</span>
@@ -58,6 +67,9 @@ async function Gate({ children }: { children: ReactNode }) {
             <span className="hidden min-[900px]:inline">Ver tienda</span>
             <span className="sr-only min-[900px]:hidden">Ver tienda</span>
           </Link>
+          <p className="hidden truncate px-1 text-[12px] text-white/70 min-[900px]:block" title={session.name || undefined}>
+            {session.name || "Sesión iniciada"}
+          </p>
           <form action={logoutAction}>
             <button type="submit" className={`${sideLink} w-full`}>
               <span aria-hidden="true">⏻</span>

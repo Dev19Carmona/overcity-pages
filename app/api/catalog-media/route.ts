@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { isAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { MAX_PRODUCT_IMAGE_BYTES, PRODUCT_IMAGE_TYPES } from "@/lib/content-limits";
 import { catalogPublicBase, CATALOG_BUCKET, getSupabase } from "@/lib/supabase";
 
@@ -13,9 +13,8 @@ const EXTENSIONS: Record<string, string> = {
 // Storage. Solo con sesión de admin; la ruta (`catalog/<uuid>.<ext>`) la genera el servidor.
 // El bucket impone el tamaño (5 MB) y los tipos (PNG/JPG/WebP) además de esta comprobación previa.
 export async function POST(request: Request) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: "Tu sesión expiró. Vuelve a entrar." }, { status: 401 });
-  }
+  const auth = await requirePermission("catalogo.productos.editar");
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
   const supabase = getSupabase();
   if (!supabase) {
     return Response.json(

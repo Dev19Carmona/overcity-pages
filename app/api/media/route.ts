@@ -1,5 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { isAdmin } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import {
   BACKGROUND_TYPES,
   MAX_BACKGROUND_BYTES,
@@ -22,9 +22,8 @@ function rules(pathname: string) {
 }
 
 export async function POST(request: Request) {
-  if (!(await isAdmin())) {
-    return Response.json({ error: "Tu sesión expiró. Vuelve a entrar." }, { status: 401 });
-  }
+  const auth = await requirePermission("links.contenido.editar");
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return Response.json(
       { error: "El almacenamiento de archivos no está configurado." },

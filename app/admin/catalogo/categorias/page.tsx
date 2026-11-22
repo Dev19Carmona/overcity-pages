@@ -1,11 +1,12 @@
 import { Suspense } from "react";
+import NoPermission from "@/app/admin/_components/no-permission";
 import PanelFallback from "@/app/admin/_components/panel-fallback";
 import CategoriesAdmin from "@/app/admin/catalogo/_components/categories-admin";
-import { loadAdminList } from "@/app/admin/_lib";
+import { loadAdminCategories } from "@/app/admin/_lib";
 
 async function CategoriesData() {
-  const catalog = await loadAdminList();
-  if (!catalog) return null;
+  const catalog = await loadAdminCategories();
+  if (!catalog) return <NoPermission />;
   return <CategoriesAdmin initial={catalog} />;
 }
 

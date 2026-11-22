@@ -9,7 +9,15 @@ const SHARE_TEXT = "OverCity Streetwear";
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-theme-red";
 
-function buildNetworks(url: string): { id: SocialNetwork; label: string; href: string }[] {
+type ShareNetwork = {
+  id: SocialNetwork;
+  label: string;
+  href: string;
+  // Instagram no tiene URL de compartir: se copia el enlace y se abre su bandeja de mensajes.
+  copyFirst?: boolean;
+};
+
+function buildNetworks(url: string): ShareNetwork[] {
   const u = encodeURIComponent(url);
   const t = encodeURIComponent(SHARE_TEXT);
   return [
@@ -17,6 +25,12 @@ function buildNetworks(url: string): { id: SocialNetwork; label: string; href: s
     { id: "facebook", label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${u}` },
     { id: "x", label: "X", href: `https://x.com/intent/post?url=${u}&text=${t}` },
     { id: "telegram", label: "Telegram", href: `https://t.me/share/url?url=${u}&text=${t}` },
+    {
+      id: "instagram",
+      label: "Instagram",
+      href: "https://www.instagram.com/direct/inbox/",
+      copyFirst: true,
+    },
     { id: "email", label: "Email", href: `mailto:?subject=${t}&body=${u}` },
   ];
 }
@@ -42,11 +56,13 @@ export default function ShareDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [url, setUrl] = useState("");
   const [copied, setCopied] = useState(false);
+  const [note, setNote] = useState("");
 
   // Siempre se abre el modal propio (no la hoja nativa del sistema) para mantener el estilo.
   function open() {
     setUrl(window.location.href);
     setCopied(false);
+    setNote("");
     dialogRef.current?.showModal();
   }
 
@@ -65,7 +81,14 @@ export default function ShareDialog() {
   }
 
   async function copy() {
+    setNote("");
     setCopied(await copyToClipboard(url));
+  }
+
+  async function copyForInstagram() {
+    const ok = await copyToClipboard(url);
+    setCopied(false);
+    setNote(ok ? "Enlace copiado: pégalo en Instagram" : "Copia el enlace y pégalo en Instagram");
   }
 
   return (
@@ -143,7 +166,7 @@ export default function ShareDialog() {
           Copiar enlace
         </button>
         <p role="status" className="mt-2 min-h-5 text-center text-sm text-white/80">
-          {copied ? "¡Enlace copiado!" : ""}
+          {copied ? "¡Enlace copiado!" : note}
         </p>
 
         <ul className="mt-3 flex flex-wrap items-center justify-center gap-4">
@@ -153,6 +176,7 @@ export default function ShareDialog() {
                 href={n.href}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={n.copyFirst ? copyForInstagram : undefined}
                 aria-label={`Compartir en ${n.label}`}
                 title={n.label}
                 className={`group flex size-14 items-center justify-center rounded-full border border-border-soft bg-black/30 text-theme-red drop-shadow-lg backdrop-blur-md transition duration-300 hover:border-theme-red hover:bg-theme-red/20 hover:text-white motion-safe:hover:-translate-y-1 ${focusRing}`}
