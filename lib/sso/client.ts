@@ -71,6 +71,17 @@ export function buildAuthorizeUrl(
   return url.toString();
 }
 
+// Cierre de sesión único (SPEC 15): el navegador pasa por el IdP, que cierra también su sesión
+// y devuelve a la portada. `post_logout_redirect_uri` debe estar registrada tal cual en base-template.
+export function buildEndSessionUrl(config: SsoConfig, idToken: string): string {
+  const url = new URL(`${base(config)}/oidc/logout`);
+  url.search = new URLSearchParams({
+    id_token_hint: idToken,
+    post_logout_redirect_uri: `${config.appUrl}/`,
+  }).toString();
+  return url.toString();
+}
+
 function basicAuth(config: SsoConfig): string {
   const pair = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
   return `Basic ${Buffer.from(pair).toString("base64")}`;

@@ -130,7 +130,7 @@ Por qué Redis y no una cookie con los datos: el refresh token debe quedarse **s
 
 ### Cierre de sesión
 
-Server Action `logoutAction` (existente): llama a `POST ${AUTH_ISSUER}/oidc/revoke` con el refresh token (si falla, sigue), borra el registro de Redis y la cookie, y registra el evento. Cierra **solo la sesión de Overcity**; la sesión de base-template sigue abierta, así que volver a entrar es inmediato. Es el comportamiento esperado de un SSO.
+Server Action `logoutAction` (existente): llama a `POST ${AUTH_ISSUER}/oidc/revoke` con el refresh token (si falla, sigue), borra el registro de Redis y la cookie, y registra el evento. Cierra **solo la sesión de Overcity**; la sesión de base-template sigue abierta, así que volver a entrar es inmediato. Es el comportamiento esperado de un SSO. **Reemplazado por el SPEC 15** (cierre de sesión único): ahora el navegador también pasa por `{AUTH_ISSUER}/oidc/logout` y se cierra la sesión de base-template.
 
 ## Autorización por punto de entrada
 

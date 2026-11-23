@@ -69,7 +69,9 @@ export async function saveContent(input: unknown): Promise<SaveResult> {
   return { ok: true, content: result.content };
 }
 
+// SPEC 15: si hay `id_token` guardado, el navegador pasa por el IdP para cerrar también la sesión
+// de base-template; si no, solo se cierra la de Overcity y se vuelve al acceso del panel.
 export async function logoutAction(): Promise<void> {
-  await logout();
-  redirect("/admin");
+  const endSessionUrl = await logout();
+  redirect(endSessionUrl ?? "/admin");
 }
