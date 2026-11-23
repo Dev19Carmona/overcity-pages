@@ -5,6 +5,7 @@ import ProductDetail from "@/app/catalogo/[id]/_components/product-detail";
 import StoreShell, { STORE_WIDTH } from "@/app/_components/store-shell";
 import { getPublicCatalogList, getPublicProduct } from "@/lib/catalog";
 import { getPublicContent } from "@/lib/content";
+import { requireModule } from "@/lib/modules";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-red";
@@ -30,12 +31,15 @@ async function findProduct(id: string) {
 export async function generateMetadata({
   params,
 }: PageProps<"/catalogo/[id]">): Promise<Metadata> {
+  await requireModule("catalogo");
   const { id } = await params;
   const found = await findProduct(id);
   return { title: found ? `${found.product.name} · OverCity` : "Producto no encontrado" };
 }
 
 export default async function ProductPage({ params }: PageProps<"/catalogo/[id]">) {
+  // SPEC 14: sin el módulo `catalogo` la ficha responde 404.
+  await requireModule("catalogo");
   const { id } = await params;
   const [found, content] = await Promise.all([findProduct(id), getPublicContent()]);
   if (!found) notFound();
