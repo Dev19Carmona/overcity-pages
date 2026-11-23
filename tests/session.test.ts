@@ -153,8 +153,57 @@ describe("cierre de sesión", () => {
   it("borra el registro y devuelve el refresh token en claro para revocarlo", async () => {
     const redis = await seed(10 * 60_000);
     const destroyed = await destroySessionRecord(redis, SECRET, "sid1");
-    expect(destroyed).toEqual({ sub: "user-1", refreshToken: "refresh-1" });
+    expect(destroyed).toEqual({ sub: "user-1", refreshToken: "refresh-1", idToken: null });
     expect(redis.store.has(sessionKey("sid1"))).toBe(false);
     expect(await destroySessionRecord(redis, SECRET, "sid1")).toBeNull();
+  });
+
+  describe("ID token para el cierre único (SPEC 15)", () => {
+    async function seedWithIdToken(idToken: string | null | undefined) {
+      const redis = fakeRedis();
+      await createSessionRecord({ redis, secret: SECRET, now: NOW }, "sid1", {
+        sub: "user-1",
+        email: "a@b.co",
+        name: "Ana",
+        claims: claims(10 * 60_000),
+        refreshToken: "refresh-1",
+        idToken,
+      });
+      return redis;
+    }
+
+    it("lo guarda cifrado, nunca en claro", async () => {
+      const redis = await seedWithIdToken("id-token-1");
+      const raw = redis.store.get(sessionKey("sid1"))!;
+      expect(raw).not.toContain("id-token-1");
+      expect(JSON.parse(raw)).toHaveProperty("idToken");
+    });
+
+    it("lo devuelve en claro al cerrar la sesión", async () => {
+      const redis = await seedWithIdToken("id-token-1");
+      expect(await destroySessionRecord(redis, SECRET, "sid1")).toEqual({
+        sub: "user-1",
+        refreshToken: "refresh-1",
+        idToken: "id-token-1",
+      });
+    });
+
+    it.each([null, undefined])("sin ID token (%s) el registro no lo incluye y se devuelve null", async (value) => {
+      const redis = await seedWithIdToken(value);
+      expect(JSON.parse(redis.store.get(sessionKey("sid1"))!)).not.toHaveProperty("idToken");
+      expect((await destroySessionRecord(redis, SECRET, "sid1"))?.idToken).toBeNull();
+    });
+
+    it("una renovación conserva el ID token del login", async () => {
+      const redis = await seedWithIdToken("id-token-1");
+      const renew: Renewer = async () => ({ claims: claims(10 * 60_000), refreshToken: "refresh-2" });
+      await loadSessionRecord({ redis, secret: SECRET, now: NOW + 9 * 60_000, renew }, "sid1");
+      expect((await destroySessionRecord(redis, SECRET, "sid1"))?.idToken).toBe("id-token-1");
+    });
+
+    it("con el secreto equivocado no se puede abrir el ID token", async () => {
+      const redis = await seedWithIdToken("id-token-1");
+      expect((await destroySessionRecord(redis, SECRET + "x", "sid1"))?.idToken).toBeNull();
+    });
   });
 });

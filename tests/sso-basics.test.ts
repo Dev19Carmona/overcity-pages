@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { open, seal } from "@/lib/sso/crypto";
-import { buildAuthorizeUrl, readSsoConfig } from "@/lib/sso/client";
+import { buildAuthorizeUrl, buildEndSessionUrl, readSsoConfig } from "@/lib/sso/client";
 import { openFlow, safeEqualText, sanitizeReturnTo, sealFlow } from "@/lib/sso/flow-cookie";
 import { codeChallengeS256, createCodeVerifier } from "@/lib/sso/pkce";
 import { CLIENT_ID, ISSUER, SECRET, TENANT_ID } from "./support";
@@ -102,5 +102,14 @@ describe("configuración y URL de autorización", () => {
     expect(url.searchParams.get("code_challenge")).toBe(codeChallengeS256("ver"));
     expect(url.searchParams.get("state")).toBe("st");
     expect(url.searchParams.get("nonce")).toBe("no");
+  });
+
+  it("arma la URL de cierre de sesión con el id_token_hint y la portada como destino (SPEC 15)", () => {
+    const config = readSsoConfig(env)!;
+    const url = new URL(buildEndSessionUrl(config, "el.id.token"));
+    expect(url.origin + url.pathname).toBe(`${ISSUER}/oidc/logout`);
+    expect(url.searchParams.get("id_token_hint")).toBe("el.id.token");
+    // Debe coincidir exacto con la URL registrada en base-template (con la barra final).
+    expect(url.searchParams.get("post_logout_redirect_uri")).toBe("https://overcity.example/");
   });
 });

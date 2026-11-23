@@ -12,6 +12,7 @@ const LOCK_SECONDS = 15;
 const LOCK_WAIT_STEP_MS = 200;
 const LOCK_WAIT_TRIES = 50; // ~10 s: algo más que el timeout del IdP (8 s)
 const SEAL_CONTEXT = "session-refresh-token";
+const ID_TOKEN_CONTEXT = "session-id-token";
 
 export interface SessionRecord {
   sub: string;
@@ -22,6 +23,9 @@ export interface SessionRecord {
   modules: string[];
   accessExpiresAt: number; // ms, del exp del access token
   refreshToken: string; // cifrado con AES-256-GCM; nunca en claro
+  // ID token del login, cifrado igual: solo sirve de `id_token_hint` al cerrar sesión (SPEC 15).
+  // Ausente en sesiones abiertas antes de esa spec.
+  idToken?: string;
   createdAt: number;
   sessionExpiresAt: number; // máximo absoluto: 7 días desde createdAt
 }
@@ -68,6 +72,7 @@ export interface NewSession {
   name: string;
   claims: AccessClaims;
   refreshToken: string;
+  idToken?: string | null;
 }
 
 // Guarda un registro nuevo bajo `sid` (identificador opaco generado por quien llama).
@@ -85,6 +90,7 @@ export async function createSessionRecord(
     modules: input.claims.modules,
     accessExpiresAt: input.claims.exp * 1000,
     refreshToken: seal(input.refreshToken, deps.secret, SEAL_CONTEXT),
+    ...(input.idToken ? { idToken: seal(input.idToken, deps.secret, ID_TOKEN_CONTEXT) } : {}),
     createdAt: deps.now,
     sessionExpiresAt: deps.now + SESSION_MAX_SECONDS * 1000,
   };
@@ -173,14 +179,19 @@ export async function loadSessionRecord(deps: SessionDeps, sid: string): Promise
   }
 }
 
-// Borra el registro y devuelve el refresh token en claro (para revocarlo), o null.
+// Borra el registro y devuelve el refresh token y el ID token en claro (para revocar y para el
+// cierre de sesión en el IdP), o null. `idToken` es null en sesiones anteriores a la SPEC 15.
 export async function destroySessionRecord(
   redis: SessionRedis,
   secret: string,
   sid: string,
-): Promise<{ sub: string; refreshToken: string | null } | null> {
+): Promise<{ sub: string; refreshToken: string | null; idToken: string | null } | null> {
   const record = await redis.get<SessionRecord>(sessionKey(sid)).catch(() => null);
   await redis.del(sessionKey(sid), lockKey(sid));
   if (!record) return null;
-  return { sub: record.sub, refreshToken: open(record.refreshToken, secret, SEAL_CONTEXT) };
+  return {
+    sub: record.sub,
+    refreshToken: open(record.refreshToken, secret, SEAL_CONTEXT),
+    idToken: record.idToken ? open(record.idToken, secret, ID_TOKEN_CONTEXT) : null,
+  };
 }

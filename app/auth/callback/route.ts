@@ -45,7 +45,14 @@ export async function GET(request: NextRequest) {
     const id = await verifyIdToken(tokens.idToken, config, flow.nonce, jwks);
     const claims = await verifyAccessToken(tokens.accessToken, config, jwks);
     if (claims.sub !== id.sub) return fail("generic", "sub distinto entre tokens");
-    await startSession({ sub: id.sub, email: id.email, name: id.name, claims, refreshToken: tokens.refreshToken });
+    await startSession({
+      sub: id.sub,
+      email: id.email,
+      name: id.name,
+      claims,
+      refreshToken: tokens.refreshToken,
+      idToken: tokens.idToken,
+    });
   } catch (error) {
     return fail("generic", error instanceof Error ? error.message : "error");
   }

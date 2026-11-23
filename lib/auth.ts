@@ -18,7 +18,14 @@ import {
   loadSessionRecord,
   type Renewer,
 } from "@/lib/session";
-import { getJwks, readSsoConfig, refreshTokens, revokeToken, type SsoConfig } from "@/lib/sso/client";
+import {
+  buildEndSessionUrl,
+  getJwks,
+  readSsoConfig,
+  refreshTokens,
+  revokeToken,
+  type SsoConfig,
+} from "@/lib/sso/client";
 import { randomToken } from "@/lib/sso/pkce";
 import { verifyAccessToken, type AccessClaims } from "@/lib/sso/tokens";
 
@@ -86,6 +93,7 @@ export async function startSession(input: {
   name: string;
   claims: AccessClaims;
   refreshToken: string;
+  idToken?: string | null;
 }): Promise<void> {
   const config = readSsoConfig();
   const redis = getRedis();
@@ -98,19 +106,24 @@ export async function startSession(input: {
 }
 
 // Revoca el refresh token en el IdP (si falla, sigue), borra el registro y la cookie.
-export async function logout(): Promise<void> {
+// Devuelve la URL a la que enviar al navegador para cerrar también la sesión en base-template
+// (cierre de sesión único, SPEC 15), o null si no se puede (sesión anterior a esa spec, sin
+// registro o error): en ese caso solo se cerró la sesión de Overcity.
+export async function logout(): Promise<string | null> {
   const store = await cookies();
   const sid = store.get(SESSION_COOKIE)?.value;
   store.delete(SESSION_COOKIE);
-  if (!sid) return;
+  if (!sid) return null;
   const config = readSsoConfig();
   const redis = getRedis();
-  if (!config || !redis) return;
+  if (!config || !redis) return null;
   try {
     const destroyed = await destroySessionRecord(redis, config.sessionSecret, sid);
     if (destroyed?.refreshToken) await revokeToken(config, destroyed.refreshToken);
     if (destroyed) console.warn(`[auth] logout sub=${destroyed.sub}`);
+    return destroyed?.idToken ? buildEndSessionUrl(config, destroyed.idToken) : null;
   } catch (error) {
     console.error("[auth] logout_error", error instanceof Error ? error.message : "desconocido");
+    return null;
   }
 }
