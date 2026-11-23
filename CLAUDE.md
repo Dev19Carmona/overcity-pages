@@ -64,6 +64,7 @@ Copy `.env.example` to `.env.local` for local development. In Vercel, `KV_REST_A
 
 - `APP_URL`: canonical public URL of Overcity (used for the OIDC `redirect_uri`; never derived from `Host`).
 - `AUTH_ISSUER`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_TENANT_ID`: base-template SSO (issuer URL, registered client, company UUID). The secret is server only.
+- `PLATFORM_URL` (SPEC 16): public URL of the base-template frontend. Server only (no `NEXT_PUBLIC_`). `getPlatformUrl()` in `lib/platform.ts` validates it (http/https); the "Ir a base-template" link in the `/admin` sidebar (`app/admin/layout.tsx`) is rendered only when it returns a URL.
 - `AUTH_SESSION_SECRET`: min 32 chars; encrypts the `overcity_oidc` cookie and the refresh token stored in Redis.
 - `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`: obsolete (SPEC 13); kept in Vercel only until the production cut is verified, then removed.
 - `KV_REST_API_URL`, `KV_REST_API_TOKEN`: Upstash Redis (content and admin sessions).
