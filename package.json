@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:copy": "tsx --env-file=.env.copy.local scripts/copy-catalog-to-local.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "supabase": "^3.4.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
