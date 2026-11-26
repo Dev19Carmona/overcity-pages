@@ -18,6 +18,20 @@ npm test        # vitest run (tests in `tests/`; `server-only` is stubbed in `vi
 
 Vitest is the test runner (SPEC 13).
 
+## Local Supabase (testing)
+
+Never test against the production Supabase project. With Docker Desktop running:
+
+```bash
+npx supabase start       # local database, API and Storage; applies supabase/migrations/ on first start
+npx supabase status      # API URL and keys (put the URL and the service_role key in .env.local)
+npm run db:copy -- --dry-run && npm run db:copy   # copy the production catalog and photos into it
+npx supabase db reset    # ERASES local data and re-applies the migrations (run db:copy again after)
+npx supabase stop        # stops the containers and keeps the data
+```
+
+`npm run db:copy` (`scripts/copy-catalog-to-local.ts`) reads `.env.copy.local` (template: `.env.copy.example`). The source client rejects anything but GET/HEAD, the target must be local and empty, and it verifies every row, the stock per product and every photo. It copies the catalog tables only: a new **catalog** table must be added to its `TABLES` list (tables with customer data should not be copied). A new migration is applied locally with `npx supabase migration up`, which keeps the data. `supabase/config.jsonc` disables the services Overcity does not use (`auth` stays on: without it `status` prints no API keys). Redis and Vercel Blob are not covered: keep their local credentials apart from production too. Production migrations are still applied by hand in the SQL Editor.
+
 ## Architecture
 
 `create-next-app` project (App Router, TypeScript, Tailwind v4, React 19) that serves the OverCity links page and an admin panel to edit it.
