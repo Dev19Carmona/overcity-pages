@@ -218,6 +218,7 @@ export function buildOrderMessage(
   lines: CartLine[],
   catalog: CartCatalog,
   origin: string,
+  code: string | null = null, // código de la solicitud guardada (SPEC 17); null si no se pudo
 ): string {
   const { products, currency, brandName, freeShippingFrom } = catalog;
   const rows = lines.flatMap((line, index) => {
@@ -236,6 +237,7 @@ export function buildOrderMessage(
   const unpriced = lines.some((line) => lineTotal(line, products) === null);
   const parts = [
     `Hola ${brandName}, quiero hacer este pedido:`,
+    ...(code ? [`Código: ${code}`] : []),
     "",
     ...rows,
     "",

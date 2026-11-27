@@ -43,6 +43,7 @@ import {
   MAX_STOCK,
 } from "@/lib/content-limits";
 import { normalizeText } from "@/lib/catalog-shared";
+import { comboKey } from "@/lib/orders-shared";
 
 const NEW_CATEGORY = "__new";
 
@@ -71,10 +72,12 @@ export default function ProductEditor({
   meta,
   product,
   version: initialVersion,
+  reserved,
 }: {
   meta: { categories: CatalogCategory[]; colors: CatalogColorDef[]; currency: CatalogCurrency };
   product: CatalogProduct | null; // null = producto nuevo
   version: number | null; // versión guardada al abrir la ficha; null = producto nuevo
+  reserved: Record<string, number>; // unidades reservadas por pedidos, por `comboKey` (SPEC 17)
 }) {
   const router = useRouter();
   const catalog = meta;
@@ -423,8 +426,12 @@ export default function ProductEditor({
                         </th>
                         {sizes.map((size) => {
                           const units = design.stock[color]?.[size] ?? 0;
+                          const held =
+                            reserved[
+                              comboKey({ productId: draft.id, designId: design.id, color, size })
+                            ] ?? 0;
                           return (
-                            <td key={size} className="px-1 py-1.5">
+                            <td key={size} className="px-1 py-1.5 text-center align-top">
                               <input
                                 aria-label={`Stock ${design.name || designIndex + 1}, ${color}, talla ${size}`}
                                 value={String(units)}
@@ -453,6 +460,11 @@ export default function ProductEditor({
                                     : "border-white/15 text-white"
                                 }`}
                               />
+                              {held > 0 && (
+                                <span className="mt-1 block whitespace-nowrap text-[11px] font-semibold text-[#ffb0b4]">
+                                  {held} {held === 1 ? "reservada" : "reservadas"}
+                                </span>
+                              )}
                             </td>
                           );
                         })}

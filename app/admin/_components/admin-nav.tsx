@@ -43,6 +43,13 @@ const ITEMS: {
     permission: "catalogo.ajustes.editar",
     match: (p: string) => p.startsWith("/admin/catalogo/ajustes"),
   },
+  {
+    href: "/admin/pedidos",
+    label: "Pedidos",
+    group: "Ventas",
+    permission: "pedidos.pedidos.gestionar",
+    match: (p: string) => p.startsWith("/admin/pedidos"),
+  },
 ];
 
 // Navegación del panel: columna a la izquierda en escritorio (con títulos de grupo),

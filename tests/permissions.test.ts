@@ -29,6 +29,19 @@ describe("can()", () => {
   });
 });
 
+describe("permisos de pedidos (SPEC 17)", () => {
+  it("van al final del catálogo y abren /admin/pedidos", () => {
+    expect(PERMISSIONS.slice(-2)).toEqual(["pedidos.pedidos.gestionar", "pedidos.ventas.anular"]);
+    expect(firstAllowedPath(session(["pedidos.pedidos.gestionar"]))).toBe("/admin/pedidos");
+    expect(firstAllowedPath(session(["pedidos.ventas.anular", "catalogo.colores.editar"]))).toBe(
+      "/admin/catalogo/colores",
+    );
+    expect(knownPermissions(["pedidos.ventas.anular", "pedidos.otro.x"])).toEqual([
+      "pedidos.ventas.anular",
+    ]);
+  });
+});
+
 describe("knownPermissions()", () => {
   it("ignora permisos desconocidos y core.*", () => {
     expect(knownPermissions(["core.users.read", "x.y.z", "links.contenido.editar"])).toEqual([

@@ -14,7 +14,7 @@ async function ProductData({
   const { id } = await params;
   const data = await loadAdminEditor(id);
   if (!data) return <NoPermission />;
-  const { meta, entry, isNew } = data;
+  const { meta, entry, reserved, isNew } = data;
 
   if (isNew) {
     if (meta.productCount >= MAX_PRODUCTS) {
@@ -24,12 +24,20 @@ async function ProductData({
         </p>
       );
     }
-    return <ProductEditor key="nuevo" meta={meta} product={null} version={null} />;
+    return (
+      <ProductEditor key="nuevo" meta={meta} product={null} version={null} reserved={reserved} />
+    );
   }
 
   if (!entry) notFound();
   return (
-    <ProductEditor key={entry.product.id} meta={meta} product={entry.product} version={entry.version} />
+    <ProductEditor
+      key={entry.product.id}
+      meta={meta}
+      product={entry.product}
+      version={entry.version}
+      reserved={reserved}
+    />
   );
 }
 
