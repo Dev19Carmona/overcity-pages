@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createOrderRequest } from "@/app/_actions/order-request";
 import { useCart, type CartToastState } from "@/app/_components/cart-provider";
+import ClearCartDialog from "@/app/_components/clear-cart-dialog";
 import {
   buildOrderMessage,
   cartCount,
@@ -63,7 +64,8 @@ export function CartToast({
 const stepButton = `size-8 text-base text-white disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
 
 export default function CartDrawer() {
-  const { catalog, lines, open, closeCart, setQty, remove, toast, dismissToast } = useCart();
+  const { catalog, lines, open, closeCart, setQty, remove, toast, dismissToast, orderSent } =
+    useCart();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [sending, setSending] = useState(false);
   const { products, currency, whatsapp, freeShippingFrom } = catalog;
@@ -105,6 +107,8 @@ export default function CartDrawer() {
       const code = await requestCodeFor(lines, createOrderRequest);
       const text = buildOrderMessage(lines, catalog, window.location.origin, code);
       const url = whatsappUrl(whatsapp, text);
+      // Antes de abrir: en la misma pestaña, la página se va al navegar.
+      orderSent(lines);
       if (target && !target.closed) target.location.replace(url);
       else window.location.assign(url); // navegadores dentro de otras apps
     } finally {
@@ -308,6 +312,7 @@ export default function CartDrawer() {
       </div>
     </dialog>
     {!open && <CartToast toast={toast} onClose={dismissToast} />}
+    <ClearCartDialog />
     </>
   );
 }

@@ -26,6 +26,13 @@ import {
   type CartProduct,
   type CartShell,
 } from "@/lib/cart";
+import {
+  forgetRequestCode,
+  forgetSentOrder,
+  readSentOrder,
+  writeSentOrder,
+  type SentOrder,
+} from "@/lib/cart-sent";
 
 export type CartToastState = {
   message: string;
@@ -45,6 +52,12 @@ type CartContextValue = {
   remove: (key: string) => void;
   toast: CartToastState;
   dismissToast: () => void;
+  hydrated: boolean;
+  // Último pedido enviado por WhatsApp sobre el que falta preguntar si se vacía la bolsa.
+  sentOrder: SentOrder | null;
+  orderSent: (lines: CartLine[]) => void;
+  dismissSentOrder: () => void;
+  clear: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -74,6 +87,7 @@ export default function CartProvider({
   const [products, setProducts] = useState<CartProduct[]>(pageProducts);
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
+  const [sentOrder, setSentOrder] = useState<SentOrder | null>(null);
   const [toast, setToast] = useState<CartToastState>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageProductsRef = useRef(pageProducts);
@@ -129,6 +143,7 @@ export default function CartProvider({
     const raw = readCart();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLines(raw);
+    setSentOrder(readSentOrder());
     void sync(raw, true);
   }, [sync]);
 
@@ -194,6 +209,24 @@ export default function CartProvider({
     [lines, showToast],
   );
 
+  const orderSent = useCallback((sent: CartLine[]) => {
+    const next = { lines: sent, at: Date.now() };
+    writeSentOrder(next);
+    setSentOrder(next);
+  }, []);
+
+  const dismissSentOrder = useCallback(() => {
+    forgetSentOrder();
+    setSentOrder(null);
+  }, []);
+
+  const clear = useCallback(() => {
+    setLines([]);
+    forgetRequestCode();
+    dismissSentOrder();
+    showToast("Vaciamos tu bolsa.");
+  }, [dismissSentOrder, showToast]);
+
   const catalog = useMemo<CartCatalog>(() => ({ ...shell, products }), [shell, products]);
 
   const value = useMemo<CartContextValue>(
@@ -209,8 +242,29 @@ export default function CartProvider({
       remove,
       toast,
       dismissToast,
+      hydrated,
+      sentOrder,
+      orderSent,
+      dismissSentOrder,
+      clear,
     }),
-    [catalog, lines, open, openCart, closeCart, add, setQty, remove, toast, dismissToast],
+    [
+      catalog,
+      lines,
+      open,
+      openCart,
+      closeCart,
+      add,
+      setQty,
+      remove,
+      toast,
+      dismissToast,
+      hydrated,
+      sentOrder,
+      orderSent,
+      dismissSentOrder,
+      clear,
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
