@@ -12,6 +12,7 @@ export async function getCartProducts(ids: string[]): Promise<CartProduct[]> {
   const unique = [
     ...new Set(ids.filter((id): id is string => typeof id === "string" && id.length <= MAX_URL)),
   ].slice(0, MAX_CART_LINES);
-  const found = await readProducts(unique, true);
+  // SPEC 17: sin caché y con el disponible: una unidad congelada o vendida deja de ofrecerse.
+  const found = await readProducts(unique, true, true);
   return found.map(({ product }) => toCartProduct(product));
 }

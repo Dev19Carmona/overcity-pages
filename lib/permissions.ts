@@ -7,6 +7,9 @@ export const PERMISSIONS = [
   "catalogo.categorias.editar",
   "catalogo.colores.editar",
   "catalogo.ajustes.editar",
+  "pedidos.pedidos.gestionar",
+  // Adicional (SPEC 17): las pantallas exigen `pedidos.pedidos.gestionar`; anular exige los dos.
+  "pedidos.ventas.anular",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -26,6 +29,8 @@ export const PERMISSION_PATHS: Record<Permission, string> = {
   "catalogo.categorias.editar": "/admin/catalogo/categorias",
   "catalogo.colores.editar": "/admin/catalogo/colores",
   "catalogo.ajustes.editar": "/admin/catalogo/ajustes",
+  "pedidos.pedidos.gestionar": "/admin/pedidos",
+  "pedidos.ventas.anular": "/admin/pedidos",
 };
 
 // Se quedan solo las claves conocidas de Overcity; cualquier otra (p. ej. `core.*`) se ignora.

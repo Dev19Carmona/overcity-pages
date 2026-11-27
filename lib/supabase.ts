@@ -2,6 +2,8 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const CATALOG_BUCKET = "catalog";
+// Bucket privado de comprobantes de pago (SPEC 17): solo URLs firmadas.
+export const PROOF_BUCKET = "payment-proofs";
 
 let client: SupabaseClient | null | undefined;
 

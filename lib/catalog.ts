@@ -19,6 +19,7 @@ import {
   type ProductCard,
   type VersionedProduct,
 } from "@/lib/catalog-shared";
+import { comboKey, reservedStockMessage } from "@/lib/orders-shared";
 import { MAX_PRODUCTS } from "@/lib/content-limits";
 import { catalogPublicBase, CATALOG_BUCKET, requireSupabase } from "@/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -122,11 +123,18 @@ type CardRow = {
 };
 
 // Lista ligera: ajustes, categorías, colores y una tarjeta por producto (sin descripción ni stock).
-export async function readCatalogList(onlyVisible: boolean): Promise<CatalogList> {
+// SPEC 17: con `discountReserved`, `stockTotal` es el disponible (físico − reservado).
+export async function readCatalogList(
+  onlyVisible: boolean,
+  discountReserved = false,
+): Promise<CatalogList> {
   const supabase = requireSupabase();
   const [meta, cards] = await Promise.all([
     readMeta(supabase),
-    supabase.rpc("catalog_cards", { only_visible: onlyVisible }),
+    supabase.rpc("catalog_cards", {
+      only_visible: onlyVisible,
+      discount_reserved: discountReserved,
+    }),
   ]);
   const rows = must(cards, "los productos") as CardRow[];
   const products: ProductCard[] = rows.map((row) => ({
@@ -187,34 +195,40 @@ function toProduct(json: ProductJson): VersionedProduct {
 }
 
 // Productos completos por id (con diseños, colores y stock), en el orden de la tienda.
+// SPEC 17: con `discountReserved`, las cantidades son el disponible; sin él, el stock físico.
 export async function readProducts(
   ids: string[],
   onlyVisible: boolean,
+  discountReserved = false,
 ): Promise<VersionedProduct[]> {
   if (ids.length === 0) return [];
   const supabase = requireSupabase();
   const { data, error } = await supabase.rpc("catalog_products", {
     ids,
     only_visible: onlyVisible,
+    discount_reserved: discountReserved,
   });
   if (error || !Array.isArray(data)) throw new Error("No se pudo leer los productos.");
   return (data as ProductJson[]).map(toProduct);
 }
 
 // ---- Lecturas públicas (con caché y etiqueta "catalog"; solo productos visibles) ----
+// SPEC 17: muestran el disponible. Un congelamiento que vence no genera ningún evento, así que la
+// caché se revalida cada minuto; los cambios hechos en el panel invalidan la etiqueta al momento.
+const PUBLIC_CACHE = { stale: 300, revalidate: 60, expire: 86_400 };
 
 export async function getPublicCatalogList(): Promise<CatalogList> {
   "use cache";
   cacheTag("catalog");
-  cacheLife("hours");
-  return readCatalogList(true);
+  cacheLife(PUBLIC_CACHE);
+  return readCatalogList(true, true);
 }
 
 export async function getPublicProduct(id: string): Promise<CatalogProduct | null> {
   "use cache";
   cacheTag("catalog");
-  cacheLife("hours");
-  const [found] = await readProducts([id], true);
+  cacheLife(PUBLIC_CACHE);
+  const [found] = await readProducts([id], true, true);
   return found?.product ?? null;
 }
 
@@ -227,6 +241,25 @@ export async function getAdminCatalogList(): Promise<CatalogList> {
 export async function getAdminProduct(id: string): Promise<VersionedProduct | null> {
   const [found] = await readProducts([id], false);
   return found ?? null;
+}
+
+// Unidades reservadas por combinación de un producto (clave de `comboKey`), para la ficha del panel.
+export async function getAdminReserved(productId: string): Promise<Record<string, number>> {
+  const rows = must(
+    await requireSupabase().rpc("reserved_combos", { ids: [productId] }),
+    "las reservas",
+  ) as { product_id: string; design_id: string; color_name: string; size: string; reserved: number }[];
+  return Object.fromEntries(
+    rows.map((row) => [
+      comboKey({
+        productId: row.product_id,
+        designId: row.design_id,
+        color: row.color_name,
+        size: row.size,
+      }),
+      row.reserved,
+    ]),
+  );
 }
 
 export async function getAdminCategories(): Promise<CatalogCategory[]> {
@@ -283,7 +316,7 @@ export type WriteResult =
   | { ok: true; version?: number; product?: CatalogProduct }
   | { ok: false; error: string };
 
-type RpcResult = { ok: boolean; error?: string; version?: number };
+type RpcResult = { ok: boolean; error?: string; version?: number; orders?: number[] };
 
 export const CONFLICT_MESSAGE =
   "Este producto cambió desde que abriste la ficha. Recarga para ver la versión nueva.";
@@ -296,8 +329,10 @@ async function rpc(supabase: SupabaseClient, name: string, args: Record<string, 
   return data as RpcResult;
 }
 
-function failure(error: string | undefined): WriteResult {
+function failure(error: string | undefined, orders: number[] = []): WriteResult {
   switch (error) {
+    case "reserved_stock":
+      return { ok: false, error: reservedStockMessage(orders) };
     case "conflict":
       return { ok: false, error: CONFLICT_MESSAGE };
     case "not_found":
@@ -314,19 +349,27 @@ function failure(error: string | undefined): WriteResult {
   }
 }
 
-// Borra de Storage las fotos que ninguna fila de `designs` referencia. Se llama después de confirmar la RPC.
+// Borra de Storage las fotos que no referencian ni `designs` ni las líneas de pedidos (SPEC 17: el
+// historial no se queda sin miniaturas). Se llama después de confirmar la RPC. Ante un error de
+// lectura no borra nada.
 export async function deleteUnreferencedImages(paths: string[]): Promise<void> {
   const unique = [...new Set(paths)].filter((path) => IMAGE_PATH_PATTERN.test(path));
   if (unique.length === 0) return;
   try {
     const supabase = requireSupabase();
-    const { data, error } = await supabase
-      .from("designs")
-      .select("image_path")
-      .in("image_path", unique);
-    if (error) return;
-    const used = new Set((data as { image_path: string }[]).map((row) => row.image_path));
-    const stale = unique.filter((path) => !used.has(path));
+    // Una consulta por foto: con `in` sobre todas, las líneas repetidas podrían pasar del tope de
+    // filas de PostgREST y dejar fuera una foto en uso.
+    const checks = await Promise.all(
+      unique.map(async (path) => {
+        const results = await Promise.all(
+          ["designs", "order_items"].map((table) =>
+            supabase.from(table).select("image_path").eq("image_path", path).limit(1),
+          ),
+        );
+        return results.every(({ data, error }) => !error && data?.length === 0) ? path : null;
+      }),
+    );
+    const stale = checks.filter((path): path is string => path !== null);
     if (stale.length > 0) await supabase.storage.from(CATALOG_BUCKET).remove(stale);
   } catch {
     // Un archivo huérfano no debe romper el guardado.
@@ -377,7 +420,7 @@ export async function writeProduct(
     payload,
     expected_version: expectedVersion,
   });
-  if (!result.ok) return failure(result.error);
+  if (!result.ok) return failure(result.error, result.orders);
   await deleteUnreferencedImages(before);
   return { ok: true, version: result.version, product };
 }
@@ -386,7 +429,7 @@ export async function removeProduct(id: string): Promise<WriteResult> {
   const supabase = requireSupabase();
   const before = await productImagePaths(supabase, id);
   const result = await rpc(supabase, "delete_product", { id });
-  if (!result.ok) return failure(result.error);
+  if (!result.ok) return failure(result.error, result.orders);
   await deleteUnreferencedImages(before);
   return { ok: true };
 }
@@ -405,7 +448,7 @@ export async function writeCategories(input: unknown): Promise<WriteResult> {
   const checked = validateCategories(input);
   if (!checked.ok) return checked;
   const result = await rpc(requireSupabase(), "save_categories", { items: checked.value });
-  return result.ok ? { ok: true } : failure(result.error);
+  return result.ok ? { ok: true } : failure(result.error, result.orders);
 }
 
 function colorInUseMessage(name: string, designs: number, products: number): string {

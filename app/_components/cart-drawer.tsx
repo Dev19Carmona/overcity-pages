@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createOrderRequest } from "@/app/_actions/order-request";
 import { useCart, type CartToastState } from "@/app/_components/cart-provider";
 import {
   buildOrderMessage,
@@ -15,6 +16,7 @@ import {
   lineTotal,
   whatsappUrl,
 } from "@/lib/cart";
+import { requestCodeFor } from "@/lib/order-request-client";
 import { colorHex, formatPrice } from "@/lib/catalog-shared";
 
 const focusRing =
@@ -63,6 +65,7 @@ const stepButton = `size-8 text-base text-white disabled:cursor-not-allowed disa
 export default function CartDrawer() {
   const { catalog, lines, open, closeCart, setQty, remove, toast, dismissToast } = useCart();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [sending, setSending] = useState(false);
   const { products, currency, whatsapp, freeShippingFrom } = catalog;
 
   useEffect(() => {
@@ -86,14 +89,27 @@ export default function CartDrawer() {
   const subtotal = cartSubtotal(lines, products);
   const unpriced = lines.some((line) => lineTotal(line, products) === null);
   const empty = lines.length === 0;
-  const canSend = !empty && whatsapp !== "";
+  const canSend = !empty && whatsapp !== "" && !sending;
   const missing = freeShippingFrom === null ? 0 : Math.max(0, freeShippingFrom - subtotal);
   const percent =
     freeShippingFrom === null ? 0 : Math.min(100, (subtotal / freeShippingFrom) * 100);
 
-  function send() {
-    const text = buildOrderMessage(lines, catalog, window.location.origin);
-    window.open(whatsappUrl(whatsapp, text), "_blank", "noopener,noreferrer");
+  // SPEC 17: antes de abrir WhatsApp se guarda la bolsa como solicitud. La pestaña se abre en el
+  // mismo gesto del clic (para que no la bloqueen) y se redirige al tener respuesta. Pase lo que
+  // pase con la solicitud, WhatsApp se abre.
+  async function send() {
+    const target = window.open("about:blank", "_blank");
+    if (target) target.opener = null;
+    setSending(true);
+    try {
+      const code = await requestCodeFor(lines, createOrderRequest);
+      const text = buildOrderMessage(lines, catalog, window.location.origin, code);
+      const url = whatsappUrl(whatsapp, text);
+      if (target && !target.closed) target.location.replace(url);
+      else window.location.assign(url); // navegadores dentro de otras apps
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -281,7 +297,7 @@ export default function CartDrawer() {
             >
               <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
             </svg>
-            Enviar pedido por WhatsApp
+            {sending ? "Abriendo WhatsApp…" : "Enviar pedido por WhatsApp"}
           </button>
           {whatsapp === "" && (
             <span className="text-xs text-white/75">

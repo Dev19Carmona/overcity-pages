@@ -26,6 +26,7 @@ vi.mock("@/lib/catalog", () => {
     getAdminColors: async () => ({ colors: [], usage: {} }),
     getAdminEditorMeta: async () => ({ categories: [], colors: [], productCount: 0 }),
     getAdminProduct: async () => null,
+    getAdminReserved: async () => ({}),
     getAdminSettings: async () => ({ title: "t", currency: "COP", whatsapp: "", freeShippingFrom: null }),
     removeProduct: async () => ok,
     writeCategories: async () => ok,
@@ -34,6 +35,27 @@ vi.mock("@/lib/catalog", () => {
     writeProductMove: async () => ok,
     writeProductVisible: async () => ok,
     writeSettings: async () => ok,
+  };
+});
+vi.mock("@/lib/orders", () => {
+  const ok = { ok: true as const, version: 1, id: "x" };
+  return {
+    createProofUrl: async () => ({ ok: true, url: "https://firmada" }),
+    createProofUpload: async () => ({ ok: true, path: "p", signedUrl: "u" }),
+    draftFromRequest: async () => null,
+    readOrder: async () => ({ marker: "pedido" }),
+    readOrderList: async () => ({ orders: [], total: 0 }),
+    readPickerProduct: async () => ({ product: {}, stock: {} }),
+    readRequest: async () => null,
+    readRequests: async () => ({ requests: [], total: 0 }),
+    writeCancel: async () => ok,
+    writeDiscardRequest: async () => ({ ok: true }),
+    writeFreeze: async () => ok,
+    writeOrder: async () => ok,
+    writeProof: async () => ok,
+    writeRelease: async () => ok,
+    writeSale: async () => ok,
+    writeVoid: async () => ok,
   };
 });
 vi.mock("@/lib/content", async (importOriginal) => ({
@@ -54,6 +76,8 @@ const PERMS: Permission[] = [
   "catalogo.categorias.editar",
   "catalogo.colores.editar",
   "catalogo.ajustes.editar",
+  "pedidos.pedidos.gestionar",
+  "pedidos.ventas.anular",
 ];
 
 async function signIn(permissions: string[] | null) {
@@ -225,7 +249,79 @@ const entryPoints: EntryPoint[] = [
     run: async () =>
       fromResponse(await (await import("@/app/api/catalog-media/route")).POST(post("/api/catalog-media"))),
   },
+  // ---- Pedidos (SPEC 17) ----
+  ...(
+    [
+      ["loadAdminOrders", (lib) => lib.loadAdminOrders({ status: "", search: "", page: 1 })],
+      ["loadAdminRequests", (lib) => lib.loadAdminRequests({ status: "", search: "", page: 1 })],
+      ["loadAdminOrder", (lib) => lib.loadAdminOrder("x")],
+      ["loadNewOrder", (lib) => lib.loadNewOrder(null)],
+    ] as [string, (lib: typeof import("@/app/admin/_lib")) => Promise<unknown>][]
+  ).map(([name, load]): EntryPoint => ({
+    name,
+    permission: "pedidos.pedidos.gestionar",
+    run: async () => ((await load(await import("@/app/admin/_lib"))) ? "allowed" : "forbidden"),
+  })),
+  ...(
+    [
+      ["saveOrder", (a) => a.saveOrder({}, null)],
+      ["freezeOrder", (a) => a.freezeOrder("x", 48, 1)],
+      ["releaseOrder", (a) => a.releaseOrder("x", 1)],
+      ["cancelOrder", (a) => a.cancelOrder("x", 1)],
+      ["sellOrder", (a) => a.sellOrder("x", { method: "efectivo" }, 1)],
+      ["setOrderProof", (a) => a.setOrderProof("x", "p", 1)],
+      ["getProofUrl", (a) => a.getProofUrl("x")],
+      ["getPickerProduct", (a) => a.getPickerProduct("x", null)],
+      ["discardRequest", (a) => a.discardRequest("OC-22222")],
+    ] as [
+      string,
+      (actions: typeof import("@/app/admin/pedidos/actions")) => Promise<{ ok: boolean; error?: string }>,
+    ][]
+  ).map(([name, call]): EntryPoint => ({
+    name,
+    permission: "pedidos.pedidos.gestionar",
+    run: async () => fromAction(await call(await import("@/app/admin/pedidos/actions"))),
+  })),
+  {
+    name: "POST /api/order-proof",
+    permission: "pedidos.pedidos.gestionar",
+    run: async () =>
+      fromResponse(await (await import("@/app/api/order-proof/route")).POST(post("/api/order-proof"))),
+  },
 ];
+
+describe("voidOrder exige los dos permisos de pedidos", () => {
+  const voidIt = async () =>
+    (await import("@/app/admin/pedidos/actions")).voidOrder("x", "motivo", 1);
+
+  it("sin sesión → denegado", async () => {
+    await signIn(null);
+    expect(await voidIt()).toEqual({ ok: false, error: authMessages.unauthenticated });
+  });
+
+  it.each([["pedidos.pedidos.gestionar"], ["pedidos.ventas.anular"]])(
+    "solo con %s → denegado",
+    async (permission) => {
+      await signIn([permission]);
+      expect(await voidIt()).toEqual({ ok: false, error: authMessages.forbidden });
+    },
+  );
+
+  it("con los dos → llega a su lógica", async () => {
+    await signIn(["pedidos.pedidos.gestionar", "pedidos.ventas.anular"]);
+    expect((await voidIt()).ok).toBe(true);
+  });
+});
+
+describe("POST /api/order-proof: códigos exactos", () => {
+  it("401 sin sesión y 403 sin permiso", async () => {
+    const { POST } = await import("@/app/api/order-proof/route");
+    await signIn(null);
+    expect((await POST(post("/api/order-proof"))).status).toBe(401);
+    await signIn(["catalogo.productos.editar"]);
+    expect((await POST(post("/api/order-proof"))).status).toBe(403);
+  });
+});
 
 describe.each(entryPoints)("$name", ({ permission, run }) => {
   it("sin sesión → denegado", async () => {
